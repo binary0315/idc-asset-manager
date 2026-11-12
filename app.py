@@ -16,6 +16,9 @@ MOVEMENT_IMPORT_TOKENS = {}
 SERVER_IMPORT_TOKENS = {}
 SERVER_COMPONENT_IMPORT_TOKENS = {}
 SERVER_SPARE_STATUSES = ('待检测','可用备件','待RMA','RMA处理中','RMA已完成','报废','其他')
+SERVER_SPARE_NOTES_LIMIT = 500
+# 历史表用 server_id 关联（SN 可变）。-1 表示原服务器已删除、历史已归档，不会再被复用 SN 错挂。
+ARCHIVED_SERVER_ID = -1
 MATERIAL_SPARE_STATUSES = ('待处理','待RMA','RMA处理中','RMA已完成','可用备件','报废','其他')
 IMPORT_LIMIT = 20 * 1024 * 1024
 IMPORT_ROW_LIMIT = 10000
@@ -776,6 +779,15 @@ def init():
         CREATE INDEX IF NOT EXISTS idx_servers_room_rack ON servers(room,rack);
         CREATE INDEX IF NOT EXISTS idx_server_components_sn ON server_components(server_sn,node_u);
         ''')
+        # 历史表改用 server_id：只回填一次，匹配不到服务器的记录直接标记为已归档(-1)，
+        # 之后即使用同一个 SN 新建服务器，也不会被错误关联回新机器。
+        for _t in ('server_component_operations','server_spares'):
+            _cols={r['name'] for r in c.execute(f'PRAGMA table_info({_t})')}
+            if 'server_id' not in _cols:
+                c.execute(f'ALTER TABLE {_t} ADD COLUMN server_id INTEGER')
+            c.execute(f'''UPDATE {_t} SET server_id=COALESCE(
+                (SELECT id FROM servers WHERE servers.sn={_t}.server_sn), -1)
+                WHERE server_id IS NULL''')
         audit_cols={r['name'] for r in c.execute('PRAGMA table_info(deletion_audit)')}
         for col,decl in (('restored_at','TEXT'),('restored_by','INTEGER')):
             if col not in audit_cols:c.execute(f'ALTER TABLE deletion_audit ADD COLUMN {col} {decl}')
@@ -801,7 +813,7 @@ def init():
         # registration. The operation log already contains the removed NODE_SN.
         missing_replacements=c.execute('''SELECT o.* FROM server_component_operations o
             LEFT JOIN server_spares s ON s.operation_id=o.id
-            WHERE o.action='部件更换' AND s.id IS NULL ORDER BY o.id''').fetchall()
+            WHERE o.action='部件更换' AND s.id IS NULL AND o.server_id>0 ORDER BY o.id''').fetchall()
         for operation in missing_replacements:
             try:
                 old_data=json.loads(operation['old_data']);new_data=json.loads(operation['new_data'])
@@ -810,8 +822,8 @@ def init():
                 if not old_sn or old_sn==new_sn:continue
                 place=c.execute('SELECT room,rack FROM servers WHERE sn=?',(operation['server_sn'],)).fetchone()
                 room,rack=(place['room'],place['rack']) if place else ('','')
-                spare=c.execute('''INSERT OR IGNORE INTO server_spares(operation_id,server_sn,node_sn,node_u,kp_name,bmc_mac,room,rack,status,responsible,created_by)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?)''',(operation['id'],operation['server_sn'],old_sn,node_u,str(old_data.get('kp_name','')),str(old_data.get('bmc_mac','')),room,rack,'待检测',operation['responsible'],operation['operated_by']))
+                spare=c.execute('''INSERT OR IGNORE INTO server_spares(operation_id,server_sn,server_id,node_sn,node_u,kp_name,bmc_mac,room,rack,status,responsible,created_by)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',(operation['id'],operation['server_sn'],operation['server_id'],old_sn,node_u,str(old_data.get('kp_name','')),str(old_data.get('bmc_mac','')),room,rack,'待检测',operation['responsible'],operation['operated_by']))
                 if spare.lastrowid:
                     c.execute('''INSERT INTO server_spare_status_history(spare_id,from_status,to_status,responsible,notes,operated_by)
                         VALUES(?,?,?,?,?,?)''',(spare.lastrowid,'历史更换记录','待检测',operation['responsible'],'根据既有部件更换操作记录补入服务器备件',operation['operated_by']))
@@ -1019,8 +1031,12 @@ class Handler(BaseHTTPRequestHandler):
                     ORDER BY CASE WHEN s.status='待处理' THEN 0 ELSE 1 END,s.created_at DESC,s.id DESC''').fetchall()]
                 material_history=c.execute('''SELECT h.*,u.username AS operator_username FROM material_spare_history h
                     LEFT JOIN users u ON u.id=h.operated_by ORDER BY h.id DESC''').fetchall()
-                server_spares=[dict(r) for r in c.execute('''SELECT s.*,u.username AS operator_username
-                    FROM server_spares s LEFT JOIN users u ON u.id=s.created_by ORDER BY s.created_at DESC,s.id DESC''').fetchall()]
+                server_spares=[dict(r) for r in c.execute('''SELECT s.*,u.username AS operator_username,
+                    sv.sn AS current_sn,
+                    CASE WHEN s.server_id IS NULL OR s.server_id=? OR sv.id IS NULL THEN 1 ELSE 0 END AS orphan
+                    FROM server_spares s LEFT JOIN users u ON u.id=s.created_by
+                    LEFT JOIN servers sv ON sv.id=s.server_id
+                    ORDER BY s.created_at DESC,s.id DESC''',(ARCHIVED_SERVER_ID,)).fetchall()]
                 history=c.execute('''SELECT h.*,u.username AS operator_username FROM server_spare_status_history h
                     LEFT JOIN users u ON u.id=h.operated_by ORDER BY h.id DESC''').fetchall()
             material_history_by_spare={}
@@ -1051,7 +1067,7 @@ class Handler(BaseHTTPRequestHandler):
                 components=c.execute('SELECT id,node_sn,node_u,kp_name,bmc_mac FROM server_components WHERE server_sn=? ORDER BY node_u DESC',(server['sn'],)).fetchall()
                 operations=c.execute('''SELECT o.id,o.node_u,o.action,o.responsible,o.old_data,o.new_data,o.operated_at,u.username AS operator_username
                     FROM server_component_operations o LEFT JOIN users u ON u.id=o.operated_by
-                    WHERE o.server_sn=? ORDER BY o.id DESC''',(server['sn'],)).fetchall()
+                    WHERE o.server_id=? ORDER BY o.id DESC''',(server['id'],)).fetchall()
             return self.send(200,{'server':dict(server),'components':[dict(x) for x in components],'operations':[dict(x) for x in operations]})
         if p=='/api/recycle' or p.startswith('/api/recycle/'):
             u=self.require(csrf=False)
@@ -1599,6 +1615,7 @@ class Handler(BaseHTTPRequestHandler):
             status=str(d.get('status','')).strip();responsible=str(d.get('responsible','')).strip();notes=str(d.get('notes','')).strip()
             if status not in SERVER_SPARE_STATUSES:return self.send(400,{'error':'备件状态无效'})
             if not responsible or len(responsible)>100:return self.send(400,{'error':'实际操作人必填，最多 100 字'})
+            if len(notes)>SERVER_SPARE_NOTES_LIMIT:return self.send(400,{'error':f'备注最多 {SERVER_SPARE_NOTES_LIMIT} 字'})
             try:
                 with db() as c:
                     old=c.execute('SELECT status FROM server_spares WHERE id=?',(spare_id,)).fetchone()
@@ -1621,16 +1638,18 @@ class Handler(BaseHTTPRequestHandler):
                 with db() as c:
                     old=c.execute('SELECT server_sn,node_sn,node_u,kp_name,bmc_mac FROM server_components WHERE id=?',(component_id,)).fetchone()
                     if not old:return self.send(404,{'error':'该 U 位部件不存在'})
+                    srv=c.execute('SELECT id FROM servers WHERE sn=?',(old['server_sn'],)).fetchone()
+                    server_id=srv['id'] if srv else ARCHIVED_SERVER_ID
                     if action=='部件更换' and node_sn==old['node_sn']:return self.send(400,{'error':'更换后的 NODE_SN 与当前相同，请确认更换编号'})
                     old_data=dict(old)
                     new_data={'node_sn':node_sn,'node_u':old['node_u'],'kp_name':old['kp_name'],'bmc_mac':old['bmc_mac']}
                     c.execute('UPDATE server_components SET node_sn=? WHERE id=?',(node_sn,component_id))
-                    op=c.execute('INSERT INTO server_component_operations(server_sn,node_u,action,responsible,old_data,new_data,operated_by) VALUES(?,?,?,?,?,?,?)',(old['server_sn'],old['node_u'],action,responsible,json.dumps(old_data,ensure_ascii=False),json.dumps(new_data,ensure_ascii=False),u['id']))
+                    op=c.execute('INSERT INTO server_component_operations(server_sn,server_id,node_u,action,responsible,old_data,new_data,operated_by) VALUES(?,?,?,?,?,?,?,?)',(old['server_sn'],server_id,old['node_u'],action,responsible,json.dumps(old_data,ensure_ascii=False),json.dumps(new_data,ensure_ascii=False),u['id']))
                     if action=='部件更换' and old['node_sn']!=node_sn:
                         place=c.execute('SELECT room,rack FROM servers WHERE sn=?',(old['server_sn'],)).fetchone()
                         room,rack=(place['room'],place['rack']) if place else ('','')
-                        spare=c.execute('''INSERT INTO server_spares(operation_id,server_sn,node_sn,node_u,kp_name,bmc_mac,room,rack,status,responsible,created_by)
-                            VALUES(?,?,?,?,?,?,?,?,?,?,?)''',(op.lastrowid,old['server_sn'],old['node_sn'],old['node_u'],old['kp_name'],old['bmc_mac'],room,rack,'待检测',responsible,u['id']))
+                        spare=c.execute('''INSERT INTO server_spares(operation_id,server_sn,server_id,node_sn,node_u,kp_name,bmc_mac,room,rack,status,responsible,created_by)
+                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',(op.lastrowid,old['server_sn'],server_id,old['node_sn'],old['node_u'],old['kp_name'],old['bmc_mac'],room,rack,'待检测',responsible,u['id']))
                         c.execute('''INSERT INTO server_spare_status_history(spare_id,from_status,to_status,responsible,notes,operated_by)
                             VALUES(?,?,?,?,?,?)''',(spare.lastrowid,'更换下架','待检测',responsible,'部件更换时自动转入服务器备件台账',u['id']))
             except sqlite3.IntegrityError:return self.send(409,{'error':'目标 U 位已占用，或 NODE_SN 已在本服务器使用'})
@@ -1732,11 +1751,38 @@ class Handler(BaseHTTPRequestHandler):
         try: d=self.body() if int(self.headers.get('Content-Length','0') or 0)>0 else {}
         except Exception: d={}
         with db() as c:
-            if p.startswith('/api/servers/'):
-                cur=c.execute('DELETE FROM servers WHERE id=?',(record_id,))
-                if cur.rowcount==0:return self.send(404,{'error':'服务器记录不存在'})
-                log_action(c,u['id'],'删除服务器',f'#{record_id}','该操作不进入回收站')
+            if p.startswith('/api/server-spares/'):
+                spare=c.execute('''SELECT s.id,s.server_id,sv.sn AS current_sn
+                    FROM server_spares s LEFT JOIN servers sv ON sv.id=s.server_id
+                    WHERE s.id=?''',(record_id,)).fetchone()
+                if not spare:return self.send(404,{'error':'服务器备件记录不存在'})
+                if spare['server_id'] and spare['server_id']>0 and spare['current_sn']:
+                    return self.send(409,{'error':'该备件仍关联现有服务器，不能单独删除；如需清理请先删除对应服务器，历史归档后再处理。'})
+                c.execute('DELETE FROM server_spare_status_history WHERE spare_id=?',(record_id,))
+                c.execute('DELETE FROM server_spares WHERE id=?',(record_id,))
+                log_action(c,u['id'],'彻底删除服务器备件',f'#{record_id}','清理已归档孤儿备件及状态历史；更换操作记录保留')
                 return self.send(200,{'ok':True})
+            if p.startswith('/api/servers/'):
+                sv=c.execute('SELECT sn FROM servers WHERE id=?',(record_id,)).fetchone()
+                if not sv:return self.send(404,{'error':'服务器记录不存在'})
+                counts={'components':c.execute('SELECT COUNT(*) n FROM server_components WHERE server_sn=?',(sv['sn'],)).fetchone()['n'],
+                        'operations':c.execute('SELECT COUNT(*) n FROM server_component_operations WHERE server_id=?',(record_id,)).fetchone()['n'],
+                        'spares':c.execute('SELECT COUNT(*) n FROM server_spares WHERE server_id=?',(record_id,)).fetchone()['n'],
+                        'history':c.execute('''SELECT COUNT(*) n FROM server_spare_status_history h
+                            JOIN server_spares s ON s.id=h.spare_id WHERE s.server_id=?''',(record_id,)).fetchone()['n']}
+                if sum(counts.values()) and str(d.get('confirm_sn','')).strip()!=str(sv['sn']).strip():
+                    return self.send(409,{
+                        'error':f'该服务器有 {counts["components"]} 条 46U 部件、{counts["operations"]} 条更换/修正历史、'
+                                f'{counts["spares"]} 条备件及 {counts["history"]} 条状态历史。删除会移除部件清单，'
+                                f'更换历史与备件将归档为「原服务器已删除」（不再关联任何服务器，也不会错挂到复用的 SN）。'
+                                f'如确需删除，请输入完整 SN「{sv["sn"]}」再次确认。',
+                        'counts':counts,'sn':sv['sn'],'requires_confirm':True})
+                # 归档：断开 id 关联，历史与备件本身保留供追溯，绝不按 SN 重新挂回新机器
+                c.execute('UPDATE server_component_operations SET server_id=? WHERE server_id=?',(ARCHIVED_SERVER_ID,record_id))
+                c.execute('UPDATE server_spares SET server_id=? WHERE server_id=?',(ARCHIVED_SERVER_ID,record_id))
+                c.execute('DELETE FROM servers WHERE id=?',(record_id,))
+                log_action(c,u['id'],'删除服务器',f'#{record_id}','部件清单已删除；更换历史与备件已归档')
+                return self.send(200,{'ok':True,'archived':counts})
             if p.startswith('/api/items/'):
                 it=c.execute('SELECT * FROM items WHERE id=?',(record_id,)).fetchone()
                 if not it:return self.send(404,{'error':'物料不存在'})
