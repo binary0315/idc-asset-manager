@@ -1,0 +1,641 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IDC资产管理</title><style>
+:root{--navy:#17365d;--blue:#2563a6;--bg:#f3f6fa;--line:#dce4ed;--muted:#66758a}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:14px/1.5 "Microsoft YaHei",system-ui,sans-serif;color:#1e293b}button,input,select,textarea{font:inherit}button{border:0;border-radius:7px;padding:9px 14px;background:var(--blue);color:#fff;cursor:pointer}button.secondary{background:#e8eef5;color:#23364d}button.danger{background:#b42318}.top{background:var(--navy);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}.top h1{font-size:18px;margin:0}.user{display:flex;gap:12px;align-items:center}.wrap{max-width:1440px;margin:24px auto;padding:0 20px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px #102b4608}.login{max-width:440px;margin:10vh auto}.login h2{margin-top:0}.hidden{display:none!important}.tabs{display:flex;gap:8px;margin-bottom:16px}.tabs button{background:#e8eef5;color:#2d4056}.tabs button.active{background:var(--navy);color:#fff}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.field{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1}.field label{font-size:12px;color:var(--muted)}input,select,textarea{border:1px solid #cbd5e1;border-radius:7px;padding:9px;background:#fff;min-width:0}.field textarea{min-height:38px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#edf3f8;color:#31465c;position:sticky;top:0;white-space:nowrap}.tablewrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:8px}.tablewrap td input,.tablewrap td select{width:100%;min-width:100px;padding:6px}.tablewrap td:nth-child(8) input{min-width:160px}.module-label{font-size:12px;color:#d7e4f2;margin-left:auto;margin-right:8px}h2{font-size:17px;margin:0 0 14px}.hint{font-size:12px;color:var(--muted);margin:8px 0 0}.status{color:#b42318;min-height:20px;margin:8px 0}.badge{background:#e8eef5;border-radius:99px;padding:3px 8px;font-size:12px}.check{display:flex;gap:7px;align-items:center;margin:5px 0}.check input{min-width:auto}.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.toolbar input{max-width:320px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.server-stats{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:10px;margin:14px 0 20px}.server-stat{display:flex;align-items:baseline;gap:8px;padding:12px 14px;background:#f2f6fa;border:1px solid var(--line);border-radius:9px}.server-stat b{font-size:22px;color:var(--navy)}.server-stat span,.room-heading span{font-size:12px;color:var(--muted)}.server-room{margin-top:18px}.room-heading{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}.room-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}.room-card{width:100%;min-height:230px;aspect-ratio:1.75/1;display:flex;flex-direction:column;gap:12px;padding:14px;text-align:left;background:#fff;color:#1e293b;border:1px solid var(--line);border-radius:13px;box-shadow:0 2px 8px #102b4608}.room-card:hover{border-color:#6f98bc;box-shadow:0 7px 20px #17365d18;transform:translateY(-2px)}.room-schematic{position:relative;display:flex;flex:1;min-height:130px;flex-direction:column;justify-content:center;align-items:center;gap:12px;border:2px solid #7897b3;border-radius:10px;background:linear-gradient(0deg,#edf3f8 1px,transparent 1px),linear-gradient(90deg,#edf3f8 1px,transparent 1px),#f8fafc;background-size:18px 18px}.room-schematic-label{position:absolute;left:10px;top:7px;font-size:11px;font-weight:700;color:#526b83}.room-schematic-racks{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:78%}.room-schematic-racks i{width:10px;height:28px;border:1px solid #4e9a76;border-radius:3px;background:#d9eee3;box-shadow:inset 0 3px #64a987}.room-schematic-door{position:absolute;right:10px;bottom:7px;font-size:10px;color:#8190a2}.room-card-info{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}.room-card-info strong{font-size:15px}.room-card-info span{font-size:12px;color:var(--muted)}.room-navigation{display:flex;align-items:center;gap:14px;margin:8px 0 16px}.room-navigation h3{margin:0;font-size:17px}.room-navigation .hint{margin:2px 0 0}.room-heading h3{margin:0;font-size:16px}.server-floor{padding:18px;background:#f7f9fc;border:1px solid var(--line);border-radius:12px;overflow:auto}.rack-row{display:flex;align-items:center;gap:12px;min-width:810px}.rack-row+.rack-row{margin-top:10px}.rack-row.row-gap{margin-top:30px;padding-top:22px;border-top:1px dashed #b8c7d8}.rack-label{width:38px;flex:none;font-weight:700;color:#52657b}.rack-cells{display:grid;grid-template-columns:repeat(10,minmax(62px,1fr));grid-template-rows:86px;grid-auto-flow:column;grid-auto-columns:minmax(62px,1fr);gap:8px;flex:1}.rack-tile{height:86px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:5px;background:#fff;border:1px solid #ccd7e3;border-radius:8px;color:#5f7084}.rack-tile.occupied{background:#e8f4ee;border-color:#75b798;color:#164b35;box-shadow:inset 0 3px 0 #32936b}.rack-tile.occupied:hover{transform:translateY(-2px);box-shadow:0 5px 12px #17365d20,inset 0 3px 0 #32936b}.rack-name{font-weight:700;font-size:14px}.rack-unit{font-size:12px}.rack-server{font-size:10px;opacity:.78}.rack-empty{background:#f3f6f9;border-style:dashed;color:#a5b1bf}.rack-dialog{width:min(920px,calc(100vw - 28px));max-height:92vh;border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 18px 60px #0b1c2c40;overflow:hidden}.rack-dialog::backdrop{background:#13263c70}.rack-dialog h2{margin:0}.dialog-close{float:right}.sn-card{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px;margin-top:10px;border:1px solid var(--line);border-radius:9px;background:#f7f9fc}.sn-card span{color:var(--muted);font-size:12px}.sn-card strong{font-family:ui-monospace,Consolas,monospace}.server-actions{display:flex;gap:6px;flex-wrap:wrap}.server-actions button{padding:6px 10px}.serverActionHeader{min-width:130px}.import-mapping{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.import-errors{color:#b42318}.component-device{border:1px solid var(--line);border-radius:11px;padding:14px;margin-top:14px}.component-device-title{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:10px}.component-device-title div{display:flex;flex-direction:column;gap:3px}.component-device-title div span,.component-device-title>span{font-size:12px;color:var(--muted)}.component-device-title strong{font-family:ui-monospace,Consolas,monospace}.u-stack{max-height:65vh;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff}.u-slot{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:stretch;min-height:42px;border-bottom:1px solid #e6ebf1}.u-slot:last-child{border-bottom:0}.u-number{display:flex;align-items:center;justify-content:center;background:#eef3f7;color:#52657a;font-size:12px;font-weight:700;border-right:1px solid var(--line)}.u-slot.filled{background:#f2f8f4}.u-slot.empty{background:#f8fafc}.u-component{display:grid;grid-template-columns:minmax(125px,1fr) minmax(180px,1.4fr) minmax(180px,1.2fr);gap:10px;align-items:center;padding:5px 10px;font-size:12px}.u-component strong{color:#244c3a}.u-component b{color:var(--muted);font-size:10px;margin-right:4px}.u-component code{font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}.u-empty-label{align-self:center;padding:0 10px;color:#9ba8b7;font-size:12px}.u-edit{margin:4px 8px;padding:5px 8px;white-space:nowrap}.u-op{grid-column:1/-1;color:#60758a}.u-slot{grid-template-columns:58px minmax(0,1fr) auto}.component-edit-dialog{overflow:auto}.component-edit-dialog form{display:grid;gap:12px}.component-empty{padding:20px;background:#f7f9fc;border-radius:8px;color:var(--muted)}@media(max-width:800px){.u-component{grid-template-columns:1fr;gap:2px}.u-slot{min-height:66px}.server-stats{grid-template-columns:repeat(2,minmax(100px,1fr))}.grid{grid-template-columns:1fr}.module-label{display:none}.top{padding:12px}.wrap{padding:0 10px;margin:12px auto}}
+.u-main{min-width:0;display:grid;align-content:center}.u-history{grid-column:1/-1;min-width:0;margin:0 10px 8px;padding:7px 10px;border:1px solid #dce5ed;border-radius:7px;background:#fff}.u-history summary{cursor:pointer;color:#365b78;font-size:12px;font-weight:600}.u-history ol{display:grid;gap:6px;margin:8px 0 2px;padding-left:22px}.u-history li{padding:6px 8px;border-left:2px solid #9bb8ce;background:#f6f9fc;font-size:12px}.u-history li span{display:block;overflow-wrap:anywhere}.u-history li small{display:block;margin-top:3px;color:#66758a}.u-edit{align-self:center}#spareMaterialStats{grid-template-columns:repeat(5,minmax(100px,1fr))}@media(max-width:800px){#spareMaterialStats{grid-template-columns:repeat(2,minmax(100px,1fr))}}#rackDialogBody{max-height:72vh;overflow:auto}.rack-equipment{margin:12px 0 22px}.preview-table{max-height:55vh;margin:10px 0}.preview-edit{min-width:90px;width:100%;padding:6px}.preview-edit[data-field="model"]{min-width:150px}.preview-edit[data-field="notes"]{min-width:180px}
+.import-mapping-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px;margin:10px 0}
+.map-col{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.map-col select{width:100%;padding:7px}
+.map-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.map-row select{min-width:300px;max-width:100%}
+.import-pager{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:12px;color:var(--muted)}
+.import-pager button{padding:5px 10px}
+.import-section{margin-top:16px}
+#importPreview .card{box-shadow:none;margin:0}
+#importPreview .import-mapping{margin:8px 0}
+.row-actions{white-space:nowrap}
+.row-actions button{padding:5px 9px;margin-right:4px}
+#itemsBody input,#itemsBody select{width:100%;min-width:88px;padding:5px}
+.preview-edit[readonly]{background:#eef2f6;color:#66758a}
+.import-errors li,.import-errors ul{margin:4px 0}
+
+.ui-modal-backdrop{position:fixed;inset:0;background:#0b1c2c70;display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
+.ui-modal{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;max-width:540px;width:100%;box-shadow:0 18px 60px #0b1c2c40}
+.ui-modal h3{margin:0 0 10px;font-size:16px;color:var(--navy)}
+.ui-modal-msg{white-space:pre-wrap;font-size:13px;color:#334155;margin:0 0 12px;line-height:1.65}
+.ui-modal input{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:7px}
+.ui-modal-error{color:#b42318;font-size:12px;min-height:18px;margin:6px 0}
+.ui-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.ui-modal-actions button{padding:8px 16px}
+.ui-toast{position:fixed;right:20px;bottom:20px;z-index:10000;max-width:440px;padding:12px 16px;border-radius:9px;color:#fff;font-size:13px;line-height:1.5;white-space:pre-wrap;box-shadow:0 8px 24px #0b1c2c40}
+.ui-toast.err{background:#b42318}
+.ui-toast.ok{background:#18794e}
+
+#recycleDetail .card{box-shadow:none;margin-top:12px}
+#recycleDetail table th{width:110px;background:#fff}
+</style></head><body><main id="login" class="card login hidden"><h2 id="authTitle">登录 IDC资产管理</h2><div id="setupHint" class="hint hidden">首次使用请创建管理员。管理员密码至少 12 位，请妥善保管。</div><form id="authForm"><div class="field"><label>管理员/协管员账号</label><input name="username" required minlength="3" autocomplete="username"></div><div class="field" style="margin-top:12px"><label>密码</label><input name="password" required type="password" minlength="12" autocomplete="new-password"></div><button id="authSubmit" style="margin-top:14px">登录</button></form><div id="authMsg" class="status"></div></main>
+<div id="app" class="hidden"><header class="top"><h1>IDC资产管理</h1><span class="module-label">物料与 GB300 服务器</span><div class="user"><span id="who"></span><button class="secondary" onclick="logout()">退出</button></div></header><div class="wrap"><div class="tabs"><button class="active" data-tab="items">物料台账</button><button data-tab="movements">库存变动明细</button><button data-tab="servers">GB300机柜视图</button><button data-tab="spares">备件管理</button><button id="usersTab" data-tab="users" class="hidden">账号权限</button><button id="recycleTab" data-tab="recycle" class="hidden">回收站 / 操作日志</button></div>
+<section id="items" class="pane"><div id="importCard" class="card hidden"><h2>Excel 批量导入物料</h2><p class="hint">上传 .xlsx 文件。系统自动扫描前 30 行猜表头；表头行或字段对不上时，可在预览区手动改「表头所在行」和每一列对应的字段，重新校验后再导入。导入不会写入库存变动明细。</p><form id="importForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><div class="field"><label>导入模式</label><select name="import_mode"><option value="create">新增物料（型号必须不存在）</option><option value="update">按型号更新台账字段</option></select></div><div class="field"><label>整批默认类别（表内没有类别列时使用）</label><select name="default_category"><option value="">请先在表内提供类别，或选择默认类别</option><option value="optical">光模块</option><option value="cable">线缆</option></select></div><button>识别表头并预览</button></form><div id="importMsg" class="status"></div><div id="importPreview"></div></div><div id="itemFormCard" class="card hidden"><h2>新增物料</h2><form id="itemForm" class="row"><div class="field"><label>类别 *</label><select name="category"><option>光模块</option><option>线缆</option></select></div><div class="field"><label>型号 *</label><input name="model" required></div><div class="field" style="flex:2"><label>名称/规格 *</label><input name="description" required></div><div class="field"><label>供应商/品牌</label><input name="supplier"></div><div class="field" style="max-width:110px"><label>计划数量</label><input name="planned" type="number" min="0" value="0"></div><div class="field"><label>存放位置</label><input name="location"></div><div class="field"><label>负责人</label><input name="owner"></div><div class="field" style="flex:2"><label>备注</label><input name="notes"></div><button>保存物料</button></form><div class="status" id="itemMsg"></div><p class="hint">当前只管理光模块与线缆；型号是唯一标识，需保持唯一，库存数量来自库存变动明细。</p></div><div id="emptyLedgerHint" class="card hidden"><b>台账当前为空</b><p class="hint">被删除的物料连同库存变动明细、坏件 SN 一起保存在「回收站 / 操作日志」中，可以查看删除前快照并原样还原。</p><button type="button" onclick="document.querySelector('[data-tab=recycle]').click()">打开回收站</button></div><div class="card"><div class="toolbar"><h2>物料台账</h2><button class="secondary" onclick="location.href='/api/export/items.xlsx'">导出 Excel</button><select id="categoryFilter"><option value="">全部类别</option><option>光模块</option><option>线缆</option></select><input id="itemSearch" placeholder="搜索型号、规格、供应商、位置"></div><div class="tablewrap"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>供应商/品牌</th><th>计划</th><th>累计入库</th><th>领用/安装</th><th>报废</th><th>可用库存</th><th>未到</th><th>位置</th><th>负责人</th><th>备注</th><th id="itemActionHeader">操作</th></tr></thead><tbody id="itemsBody"></tbody></table></div></div></section>
+<section id="movements" class="pane hidden"><div id="movementImportCard" class="card hidden"><h2>Excel 批量导入入库明细</h2><p class="hint">仅导入入库。必需字段只有「型号」和「入库数量」两个，类别自动按型号从台账带出。表头行或列名对不上时，可在预览区手动改「表头所在行」和每列对应的字段，重新校验后再导入；数量列不必叫「入库数量」。选填列：日期、类别、业务类型、位置/去向、负责人、备注。不会新增或修改台账记录。</p><form id="movementImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="movementImportMsg" class="status"></div><div id="movementImportPreview"></div></div><div id="moveFormCard" class="card hidden"><h2>登记库存变动</h2><form id="moveForm" class="row"><div class="field"><label>日期 *</label><input name="moved_at" type="date" required></div><div class="field"><label>业务类型 *</label><select name="kind"><option>入库</option><option>领用/安装</option><option>报废</option></select></div><div class="field" style="flex:2"><label>类别 *</label><select name="category" id="moveCategory" required><option>光模块</option><option>线缆</option></select></div><div class="field" style="flex:2"><label>型号 *</label><select name="model" id="moveModel" required></select></div><div class="field"><label>数量 *</label><input name="qty" type="number" min="1" step="1" required></div><div class="field"><label id="locationLabel">入库位置/去向（选填）</label><input name="location"></div><div class="field"><label>负责人（选填）</label><input name="owner"></div><div class="field" style="flex:2"><label>备注（选填）</label><input name="notes"></div><button>提交明细</button></form><div class="status" id="moveMsg"></div></div><div class="card"><div class="toolbar"><h2>库存变动明细（最近 1000 条）</h2><button class="secondary" onclick="location.href='/api/export/movements.xlsx'">导出 Excel</button></div><div class="tablewrap"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th id="movementActionHeader">操作</th></tr></thead><tbody id="movesBody"></tbody></table></div></div></section>
+<section id="servers" class="pane hidden"><div id="serverImportCard" class="card hidden"><h2>Excel 批量导入 GB300 服务器</h2><p class="hint">必需字段：机房/房间、机柜位置（Rack#）和 SN（序列号）。支持 .xlsx，系统会识别前 10 行表头并预览；重复 SN 或缺少必需数据时，整批不会导入。其他列会忽略。协管员可修改，管理员可修改和删除。</p><form id="serverImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverImportMsg" class="status"></div><div id="serverImportPreview"></div></div><div id="serverComponentImportCard" class="card hidden"><h2>Excel 批量导入 GB300 46U 部件</h2><p class="hint">必需表头：SN、NODE_SN、NODE、KP_NAME、BMC_MAC。BMC_MAC 列必须存在，但个别部件的值可以为空。SN 必须能关联服务器清单，NODE 必须是 1–46 的整数 U 位；每个 SN 预期 37 个部件。确认后会替换文件中这些 SN 对应的部件清单。源表机房/机柜列会忽略，位置从服务器清单按 SN 关联。</p><form id="serverComponentImportForm" class="row"><div class="field" style="flex:2"><label>部件明细 Excel（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverComponentImportMsg" class="status"></div><div id="serverComponentImportPreview"></div></div><div class="card"><div class="toolbar"><div><h2>机房设备位置</h2><p class="hint">先选择机房进入内部布局。点击机柜可查看 48U 设备位置及 GB300 部件详情。</p></div><input id="serverSearch" placeholder="搜索机房、机柜位置或 SN"></div><div id="serverStats" class="server-stats"></div><div id="serverOverview" class="room-overview"></div><div id="serverInterior" class="hidden"><div class="room-navigation"><button id="serverBackButton" class="secondary">← 返回机房总览</button><div><h3 id="serverRoomTitle"></h3><p class="hint" id="serverRoomSummary"></p></div></div><div id="serverRooms"></div></div></div><div id="serverAssetsCard" class="card hidden"><div class="toolbar"><h2 id="serverAssetsTitle">服务器清单</h2><span class="hint">按单台服务器记录维护</span></div><div class="tablewrap"><table><thead><tr><th>机房/房间</th><th>机柜位置</th><th>SN</th><th class="serverActionHeader">操作</th></tr></thead><tbody id="serverAssetsBody"></tbody></table></div></div><dialog id="rackDialog" class="rack-dialog"><form method="dialog"><button class="secondary dialog-close" aria-label="关闭">关闭</button></form><h2 id="rackDialogTitle"></h2><p class="hint" id="rackDialogSummary"></p><div id="rackDialogBody"></div></dialog><dialog id="componentEditDialog" class="rack-dialog component-edit-dialog"><form id="componentEditForm"><h2 id="componentEditTitle">编辑 / 更换部件</h2><p class="hint">U 位及 KP_NAME 固定，仅更新 NODE_SN。选择“部件更换”会把所有类型部件的旧 SN 自动登记为备件；信息修正用于纠正录入错误。系统记录登录账号，责任人填写实际操作人。</p><div class="row"><div class="field"><label>当前 U 位</label><input id="componentEditU" disabled></div><div class="field"><label>KP_NAME（固定）</label><input id="componentEditKp" disabled></div><div class="field"><label>NODE_SN *</label><input name="node_sn" required></div><div class="field"><label>操作类型 *</label><select name="action" id="componentEditAction"><option>部件更换</option><option>信息修正</option></select></div><div class="field"><label>实际操作人/责任人 *</label><input name="responsible" required></div></div><div id="componentEditMsg" class="status"></div><div class="server-actions"><button type="submit">保存</button><button type="button" class="secondary" onclick="document.getElementById('componentEditDialog').close()">取消</button></div></form></dialog></section><section id="spares" class="pane hidden">
+<div class="card"><div class="toolbar"><div><h2>光模块 / 线缆库存与坏件</h2><p class="hint">台账库存按库存变动明细计算。登记“报废”后，每件坏件会自动进入下方待处理列表；逐件填写 SN 并选择后续状态。</p></div><input id="spareMaterialSearch" placeholder="搜索类别、型号或规格"></div><div id="spareMaterialStats" class="server-stats"></div><div class="tablewrap"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>可用库存</th><th>累计报废坏件</th></tr></thead><tbody id="spareMaterialsBody"></tbody></table></div></div>
+<div class="card"><div class="toolbar"><div><h2>光模块 / 线缆坏件处理</h2><p class="hint">每条对应库存变动明细中的一件报废品。待处理记录须补录 SN 并选择状态后保存；源明细可追溯。</p></div><select id="materialSpareFilter"><option value="">全部状态</option></select></div><div class="tablewrap"><table><thead><tr><th>来源日期</th><th>类别 / 型号</th><th>坏件序号</th><th>坏件 SN *</th><th>状态 *</th><th>原位置 / 负责人</th><th>处理负责人</th><th>备注</th><th>保存 / 历史</th></tr></thead><tbody id="materialSparesBody"></tbody></table></div></div>
+<div class="card"><div class="toolbar"><div><h2>服务器更换部件备件</h2><p class="hint">机柜 U 位中任意有 SN 的部件，执行“部件更换”后，旧 SN 都会自动登记为备件。信息修正不会生成备件。</p></div><select id="serverSpareFilter"><option value="">全部状态</option></select></div><div class="server-stats" id="serverSpareStats"></div><div class="tablewrap"><table><thead><tr><th>来源位置</th><th>服务器 SN</th><th>U 位</th><th>部件类型</th><th>原部件 SN</th><th>状态</th><th>实际操作人</th><th>备注</th><th>操作 / 历史</th></tr></thead><tbody id="serverSparesBody"></tbody></table></div></div></section><section id="users" class="pane hidden"><div class="card"><h2>创建协管员</h2><form id="userForm" class="row"><div class="field"><label>账号 *</label><input name="username" required minlength="3"></div><div class="field"><label>初始密码（至少 12 位）*</label><input name="password" required minlength="12" type="password"></div><div><label class="check"><input name="can_view" type="checkbox" checked> 可查看台账和明细</label><label class="check"><input name="can_edit" type="checkbox"> 可编辑物料信息和库存明细</label></div><button>创建协管员</button></form><div id="userMsg" class="status"></div><p class="hint">管理员始终拥有全部权限。协管员权限可随时修改或停用；停用后会立即注销其会话。</p></div><div class="card"><h2>协管员权限</h2><div class="tablewrap"><table><thead><tr><th>账号</th><th>查看</th><th>编辑</th><th>状态</th><th>操作</th></tr></thead><tbody id="usersBody"></tbody></table></div></div></section>
+
+<section id="recycle" class="pane hidden">
+  <div class="card">
+    <div class="toolbar"><h2>回收站</h2><div><button type="button" class="secondary" data-act="refresh">刷新</button> <button type="button" data-act="restore-all">全部还原</button> <button type="button" class="danger" data-act="purge-all">清空回收站</button></div></div>
+    <p class="hint">删除物料时系统会保存删除前的完整快照（含库存变动明细、坏件 SN 与状态历史）。这里可查看详情并原样还原。若原编号或型号已被重新占用，则无法还原并会显示原因。</p>
+    <div id="recycleMsg" class="status"></div>
+    <div class="tablewrap"><table><thead><tr><th>删除时间</th><th>操作人</th><th>类别</th><th>型号</th><th>名称/规格</th><th>明细</th><th>坏件</th><th>状态</th><th>操作</th></tr></thead><tbody id="recycleBody"></tbody></table></div>
+    <div id="recycleDetail"></div>
+  </div>
+  <div class="card"><h2>操作日志</h2>
+    <p class="hint">记录新增、编辑、导入、登记、删除、还原等关键动作（最近 300 条）。删除单条明细或服务器只记录日志，不进入回收站。</p>
+    <div class="tablewrap"><table><thead><tr><th>时间</th><th>操作人</th><th>动作</th><th>对象</th><th>详情</th></tr></thead><tbody id="operationLogBody"></tbody></table></div>
+  </div>
+</section>
+</div></div><script>
+let me=null,csrf='',editingServerId=null,selectedServerRoom=null;const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(url,opts={}){opts.headers={'Content-Type':'application/json',...(opts.headers||{})};if(csrf&&opts.method&&opts.method!=='GET')opts.headers['X-CSRF-Token']=csrf;let r=await fetch(url,opts),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'请求失败');return d}
+function showAuth(setup){$('#app').classList.add('hidden');$('#login').classList.remove('hidden');$('#setupHint').classList.toggle('hidden',!setup);$('#authTitle').textContent=setup?'首次使用：创建管理员':'登录 IDC资产管理';$('#authSubmit').textContent=setup?'创建管理员':'登录';$('#authForm').dataset.setup=setup?'1':'';$('#authForm').elements.password.minLength=setup?12:1;$('#authForm').elements.password.autocomplete=setup?'new-password':'current-password'}
+async function start(){try{let status=await api('/api/status');if(status.setup_required)return showAuth(true);let r=await api('/api/me');setUser(r);await refresh()}catch(e){showAuth(false)}}
+function setUser(u){me=u;csrf=u.csrf;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#who').innerHTML=`${esc(u.username)} <span class="badge">${u.is_admin?'管理员':(u.can_edit?'协管员 · 编辑':'协管员 · 查看')}</span>`;$('#usersTab').classList.toggle('hidden',!u.is_admin);$('#recycleTab').classList.toggle('hidden',!u.is_admin);$('#itemFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#importCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#moveFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#movementImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverComponentImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);document.querySelectorAll('.serverActionHeader').forEach(el=>el.classList.toggle('hidden',!u.can_edit&&!u.is_admin));$('#itemActionHeader').classList.toggle('hidden',!u.is_admin&&!u.can_edit);$('#movementActionHeader').classList.toggle('hidden',!u.is_admin)}
+$('#authForm').onsubmit=async e=>{e.preventDefault();$('#authMsg').textContent='';let f=new FormData(e.target),payload=Object.fromEntries(f);try{let u=await api(e.target.dataset.setup?'/api/setup':'/api/login',{method:'POST',body:JSON.stringify(payload)});setUser(u);await refresh()}catch(err){$('#authMsg').textContent=err.message}};
+async function refresh(){await loadItems();await loadMoves();await loadServers();await loadSpares();if(me.is_admin)await loadUsers()}
+async function loadItems(){let {items}=await api('/api/items');$('#itemsBody').innerHTML=items.map(x=>`<tr data-category="${esc(x.category)}"><td>${me.is_admin||me.can_edit?`<select class="cat-edit" data-id="${x.id}"><option ${x.category==='光模块'?'selected':''}>光模块</option><option ${x.category==='线缆'?'selected':''}>线缆</option></select>`:esc(x.category)}</td><td>${esc(x.model)}</td><td>${esc(x.description)}</td><td>${esc(x.supplier)}</td><td>${x.planned}</td><td>${x.received}</td><td>${x.used}</td><td>${x.damaged}</td><td><b>${x.available}</b></td><td>${x.not_received}</td><td>${esc(x.location)}</td><td>${esc(x.owner)}</td><td>${esc(x.notes)}</td>${me.is_admin?`<td><button class="danger" onclick="deleteItem(${x.id})">删除</button></td>`:'<td></td>'}</tr>`).join('');fillMovementModels(items);window.allItems=items;document.querySelectorAll('.cat-edit').forEach(el=>el.onchange=async()=>{try{await api('/api/items/'+el.dataset.id,{method:'PATCH',body:JSON.stringify({category:el.value})});filterItems()}catch(e){uiToast(e.message);await loadItems()}})}
+let editingMovementId=null;
+function movementRow(x,editing=false){
+ if(!editing)return `<tr><td>${esc(x.moved_at)}</td><td>${esc(x.kind)}</td><td>${esc(x.category)}</td><td>${esc(x.model)}</td><td>${x.qty}</td><td>${esc(x.location)}</td><td>${esc(x.owner)}</td><td>${esc(x.notes)}</td>${me.can_edit||me.is_admin?`<td><button class="secondary" onclick="editMovement(${x.id})">编辑</button> ${me.is_admin?`<button class="danger" onclick="deleteMovement(${x.id})">删除</button>`:''}</td>`:'<td></td>'}</tr>`;
+ let kindOpts=['入库','领用/安装','报废'].map(v=>`<option ${v===x.kind?'selected':''}>${v}</option>`).join('');
+ let modelOpts=(window.allItems||[]).map(i=>`<option value="${esc(i.model)}" ${i.model===x.model?'selected':''}>${esc(i.model)} · ${esc(i.category)}</option>`).join('');
+ return `<tr id="movement-${x.id}"><td><input name="moved_at" type="date" value="${esc(x.moved_at)}"></td><td><select name="kind">${kindOpts}</select></td><td>${esc(x.category)}</td><td><select name="model">${modelOpts}</select></td><td><input name="qty" type="number" min="1" step="1" value="${x.qty}"></td><td><input name="location" value="${esc(x.location)}"></td><td><input name="owner" value="${esc(x.owner)}"></td><td><input name="notes" value="${esc(x.notes)}"></td><td><button onclick="saveMovement(${x.id})">保存</button> <button class="secondary" onclick="cancelMovementEdit()">取消</button><div class="status edit-error"></div></td></tr>`;
+}
+async function loadMoves(){let {movements}=await api('/api/movements');window.allMovements=movements;$('#movesBody').innerHTML=movements.map(x=>movementRow(x,x.id===editingMovementId)).join('')}
+function editMovement(id){editingMovementId=id;loadMoves()}
+function cancelMovementEdit(){editingMovementId=null;loadMoves()}
+async function saveMovement(id){let tr=$('#movement-'+id);let payload={};for(let k of ['moved_at','kind','model','qty','location','owner','notes'])payload[k]=tr.querySelector(`[name="${k}"]`).value;payload.qty=Number(payload.qty);try{await api('/api/movements/'+id,{method:'PATCH',body:JSON.stringify(payload)});editingMovementId=null;await loadItems();await loadMoves()}catch(e){tr.querySelector('.edit-error').textContent=e.message}}
+
+const importFieldNames={category:'类别',model:'型号',description:'名称/规格',planned:'计划数量',supplier:'供应商/品牌',location:'存放位置',owner:'负责人',notes:'备注'};
+$('#importForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#importMsg').textContent='正在读取并检查表格…';$('#importPreview').innerHTML='';try{let r=await fetch('/api/import-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf,'X-Category-Default':e.target.elements.default_category.value},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');renderImportPreview(d)}catch(err){$('#importMsg').textContent=err.message}};
+function previewCell(value,row,field,type='text'){return `<input class="preview-edit" data-row="${row}" data-field="${field}" type="${type}" value="${esc(value??'')}" aria-label="第${row+1}行 ${esc(importFieldNames[field]||field)}">`}
+function collectPreviewRows(container,source,fields,numberFields=[]){return source.map((row,i)=>{let copy={...row};for(let field of fields){let input=container.querySelector(`[data-row="${i}"][data-field="${field}"]`);if(input)copy[field]=numberFields.includes(field)?Number(input.value):input.value.trim()}return copy})}
+function renderImportPreview(d){window.itemImportPreviewRows=d.preview_rows||d.samples||[];let rows=window.itemImportPreviewRows,mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(importFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' '),errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join(''),warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join(''),samples=rows.map((x,i)=>`<tr><td>${previewCell(x.category,i,'category')}</td><td>${previewCell(x.model,i,'model')}</td><td>${previewCell(x.description,i,'description')}</td><td>${previewCell(x.planned,i,'planned','number')}</td><td>${previewCell(x.supplier,i,'supplier')}</td><td>${previewCell(x.location,i,'location')}</td><td>${previewCell(x.owner,i,'owner')}</td><td>${previewCell(x.notes,i,'notes')}</td></tr>`).join('');$('#importMsg').textContent=`识别到第 ${d.header_row} 行为表头，共 ${d.rows} 条物料记录。${d.token?'可直接在下表修改后导入。':'请先处理识别问题。'}`;$('#importPreview').innerHTML=`<div class="card"><b>字段对应</b><div class="import-mapping">${mapping}</div><p class="hint">表格内容可直接修改，确认时会重新校验。类别仅支持光模块或线缆。</p>${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}<div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th></tr></thead><tbody>${samples}</tbody></table></div>${d.token?'<button id="confirmImport">确认导入 '+d.rows+' 条</button>':''}</div>`;if(d.token)$('#confirmImport').onclick=()=>confirmImport(d.token)}
+async function confirmImport(token){if(!await uiConfirm('确认将预览中的物料写入物料台账？本次不会写入库存变动明细。'))return;try{let d=await api('/api/import-items',{method:'POST',body:JSON.stringify({token,rows:collectPreviewRows($('#importPreview'),window.itemImportPreviewRows,['category','model','description','planned','supplier','location','owner','notes'],['planned'])})});$('#importMsg').textContent=`已导入 ${d.imported} 条物料，库存变动明细未改动。`;$('#importPreview').innerHTML='';$('#importForm').reset();await loadItems();filterItems()}catch(e){$('#importMsg').textContent=e.message}}
+
+$('#itemForm').onsubmit=async e=>{e.preventDefault();let p=Object.fromEntries(new FormData(e.target));try{await api('/api/items',{method:'POST',body:JSON.stringify(p)});e.target.reset();e.target.elements.planned.value=0;$('#itemMsg').textContent='物料已保存';await loadItems();filterItems()}catch(err){$('#itemMsg').textContent=err.message}};
+
+const movementFieldNames={model:'型号',category:'类别',qty:'入库数量',date:'日期',location:'位置/去向',owner:'负责人',notes:'备注',kind:'业务类型'};
+$('#movementImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#movementImportMsg').textContent='正在读取并校验入库明细…';$('#movementImportPreview').innerHTML='';try{let r=await fetch('/api/import-movements-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf,'X-Category-Default':e.target.elements.default_category.value},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');renderMovementImportPreview(d)}catch(err){$('#movementImportMsg').textContent=err.message}};
+function renderMovementImportPreview(d){window.movementImportPreviewRows=d.preview_rows||d.samples||[];let rows=window.movementImportPreviewRows,mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(movementFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' '),errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join(''),warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join(''),samples=rows.map((x,i)=>`<tr><td>${previewCell(x.moved_at,i,'moved_at','date')}</td><td>入库</td><td>${previewCell(x.category,i,'category')}</td><td>${previewCell(x.model,i,'model')}</td><td>${previewCell(x.qty,i,'qty','number')}</td><td>${previewCell(x.location,i,'location')}</td><td>${previewCell(x.owner,i,'owner')}</td><td>${previewCell(x.notes,i,'notes')}</td></tr>`).join('');$('#movementImportMsg').textContent=`识别到第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.token?'可直接在下表修改后导入。':'请处理问题后重新上传。'}`;$('#movementImportPreview').innerHTML=`<div class="card"><b>字段对应</b><div class="import-mapping">${mapping}</div><p class="hint">可直接修改日期、类别、型号、数量及其他字段；确认时会重新检查型号、类别和数量。</p>${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}<div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th></tr></thead><tbody>${samples}</tbody></table></div>${d.token?'<button id="confirmMovementImport">确认导入 '+d.rows+' 条入库明细</button>':''}</div>`;if(d.token)$('#confirmMovementImport').onclick=()=>confirmMovementImport(d.token)}
+async function confirmMovementImport(token){if(!await uiConfirm('确认将预览中的记录作为“入库”写入库存变动明细？物料台账不变。'))return;try{let d=await api('/api/import-movements',{method:'POST',body:JSON.stringify({token,rows:collectPreviewRows($('#movementImportPreview'),window.movementImportPreviewRows,['moved_at','category','model','qty','location','owner','notes'],['qty'])})});$('#movementImportMsg').textContent=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。`;$('#movementImportPreview').innerHTML='';$('#movementImportForm').reset();await loadItems();await loadMoves()}catch(e){$('#movementImportMsg').textContent=e.message}}
+
+$('#moveForm').elements.kind.onchange=e=>{$('#locationLabel').textContent=e.target.value==='入库'?'入库位置（选填）':e.target.value==='报废'?'处理去向（选填）':'使用位置/目的地（选填）'};
+function fillMovementModels(items=window.allItems||[]){let cat=$('#moveCategory')?.value;let matches=items.filter(x=>x.category===cat);$('#moveModel').innerHTML=matches.map(x=>`<option value="${esc(x.model)}">${esc(x.model)}</option>`).join('')}$('#moveCategory').onchange=()=>fillMovementModels();
+$('#moveForm').onsubmit=async e=>{e.preventDefault();let p=Object.fromEntries(new FormData(e.target));try{await api('/api/movements',{method:'POST',body:JSON.stringify(p)});$('#moveMsg').textContent='库存明细已登记';let date=e.target.elements.moved_at.value;e.target.reset();e.target.elements.moved_at.value=date;await loadItems();fillMovementModels();await loadMoves()}catch(err){$('#moveMsg').textContent=err.message}};
+function filterItems(){let q=$('#itemSearch').value.toLowerCase(),cat=$('#categoryFilter').value;for(let tr of $('#itemsBody').rows)tr.hidden=!(tr.innerText.toLowerCase().includes(q)&&(!cat||tr.dataset.category===cat))}$('#itemSearch').oninput=filterItems;$('#categoryFilter').onchange=filterItems;
+async function deleteItem(id){let it=window.allItems.find(x=>x.id===id);if(!it)return;let msg=`确定删除 ${it.category}「${it.model} / ${it.description}」吗？该物料关联的所有库存变动明细也会一起删除，且无法恢复。`;if(!await uiConfirm(msg))return;try{await api('/api/items/'+id,{method:'DELETE'});await loadItems();await loadMoves();filterItems()}catch(e){uiToast(e.message)}}
+async function deleteMovement(id){if(!await uiConfirm('确定删除这条库存变动明细吗？删除后台账汇总库存会随之变化。'))return;try{await api('/api/movements/'+id,{method:'DELETE'});await loadItems();await loadMoves()}catch(e){uiToast(e.message)}}
+async function activateTab(tab){document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('hidden',x.id!==tab.dataset.tab));try{if(tab.dataset.tab==='items'){await loadItems();filterItems()}else if(tab.dataset.tab==='movements'){await Promise.all([loadItems(),loadMoves()]);filterItems();fillMovementModels()}else if(tab.dataset.tab==='servers')await loadServers();else if(tab.dataset.tab==='spares')await loadSpares();else if(tab.dataset.tab==='recycle'&&me?.is_admin)await loadRecycle();else if(tab.dataset.tab==='users'&&me?.is_admin)await loadUsers()}catch(e){uiToast('刷新页面数据失败：'+e.message)}}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>activateTab(b));
+$('#userForm').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target);let p={username:f.get('username'),password:f.get('password'),can_view:f.has('can_view'),can_edit:f.has('can_edit')};try{await api('/api/users',{method:'POST',body:JSON.stringify(p)});e.target.reset();$('#userMsg').textContent='协管员账号已创建';await loadUsers()}catch(err){$('#userMsg').textContent=err.message}};
+async function loadUsers(){let {users}=await api('/api/users');$('#usersBody').innerHTML=users.filter(x=>!x.is_admin).map(x=>`<tr><td>${esc(x.username)}</td><td><input type="checkbox" ${x.can_view?'checked':''} data-id="${x.id}" data-key="can_view"></td><td><input type="checkbox" ${x.can_edit?'checked':''} data-id="${x.id}" data-key="can_edit"></td><td>${x.active?'启用':'停用'}</td><td><button class="secondary" data-toggle="${x.id}" data-active="${x.active?0:1}">${x.active?'停用账号':'启用账号'}</button></td></tr>`).join('');$('#usersBody').querySelectorAll('input').forEach(el=>el.onchange=async()=>{let id=el.dataset.id,other=$(`#usersBody input[data-id="${id}"][data-key="${el.dataset.key==='can_view'?'can_edit':'can_view'}"]`);try{await api('/api/users/'+id,{method:'PATCH',body:JSON.stringify({can_view:el.dataset.key==='can_view'?el.checked:other.checked,can_edit:el.dataset.key==='can_edit'?el.checked:other.checked,active:true})})}catch(e){uiToast(e.message);await loadUsers()}});$('#usersBody').querySelectorAll('button[data-toggle]').forEach(b=>b.onclick=async()=>{let id=b.dataset.toggle,view=$(`#usersBody input[data-id="${id}"][data-key="can_view"]`).checked,edit=$(`#usersBody input[data-id="${id}"][data-key="can_edit"]`).checked;try{await api('/api/users/'+id,{method:'PATCH',body:JSON.stringify({can_view:view,can_edit:edit,active:b.dataset.active==='1'})});await loadUsers()}catch(e){uiToast(e.message)}})}
+async function logout(){try{await api('/api/logout',{method:'POST',body:'{}'})}finally{csrf='';me=null;showAuth(false)}}
+
+async function loadSpares(){window.spareData=await api('/api/spares');renderSpareMaterials();renderMaterialSpares();renderServerSpares()}
+function renderSpareMaterials(){let d=window.spareData||{materials:[]},q=($('#spareMaterialSearch').value||'').trim().toLowerCase(),items=d.materials.filter(x=>`${x.category} ${x.model} ${x.description}`.toLowerCase().includes(q)),available=items.reduce((a,x)=>a+Math.max(0,x.available),0),damaged=items.reduce((a,x)=>a+x.damaged,0),pending=(d.material_spares||[]).filter(x=>x.status==='待处理').length;$('#spareMaterialStats').innerHTML=`<div class="server-stat"><b>${items.length}</b><span>种型号</span></div><div class="server-stat"><b>${available}</b><span>可用库存</span></div><div class="server-stat"><b>${damaged}</b><span>累计报废</span></div><div class="server-stat"><b>${pending}</b><span>待补SN坏件</span></div>`;$('#spareMaterialsBody').innerHTML=items.map(x=>`<tr><td>${esc(x.category)}</td><td>${esc(x.model)}</td><td>${esc(x.description)}</td><td><b>${x.available}</b></td><td>${x.damaged}</td></tr>`).join('')||'<tr><td colspan="5" class="hint">暂无库存或报废物料</td></tr>'}
+function renderMaterialSpares(){let d=window.spareData||{material_spares:[],material_statuses:[]},filter=$('#materialSpareFilter').value,search=($('#spareMaterialSearch').value||'').trim().toLowerCase(),rows=(d.material_spares||[]).filter(x=>(!filter||x.status===filter)&&(`${x.category} ${x.model} ${x.description}`.toLowerCase().includes(search))),canEdit=me&&(me.can_edit||me.is_admin);if($('#materialSpareFilter').options.length===1)for(let state of d.material_statuses)$('#materialSpareFilter').add(new Option(state,state));$('#materialSparesBody').innerHTML=rows.map(x=>{let options=d.material_statuses.filter(state=>state!=='待处理').map(state=>`<option ${state===x.status?'selected':''}>${esc(state)}</option>`).join(''),history=x.history.map(h=>`<li><span>${esc(h.old_serial_number||'（未录SN）')} → ${esc(h.serial_number)} · ${esc(h.from_status)} → ${esc(h.to_status)}</span><small>操作账号：${esc(h.operator_username||'未知')} · 实际操作人：${esc(h.responsible||'')} · ${esc(h.operated_at)}${h.notes?' · '+esc(h.notes):''}</small></li>`).join(''),source=x.source_location||'—';return `<tr data-material-spare="${x.id}"><td>${esc(x.moved_at||'')}</td><td>${esc(x.category)} / <code>${esc(x.model)}</code></td><td>${x.unit_index} / 来源单 #${x.movement_id||'—'}</td><td>${canEdit?`<input name="serial_number" value="${esc(x.serial_number)}" placeholder="待处理时必填SN">`:esc(x.serial_number||'待补录')}</td><td>${canEdit?`<select name="status"><option value="待处理" ${x.status==='待处理'?'selected':''}>待处理</option>${options}</select>`:`<span class="badge">${esc(x.status)}</span>`}</td><td>${esc(source)} / ${esc(x.source_owner||'')}</td><td>${canEdit?`<input name="responsible" value="${esc(x.responsible)}" placeholder="实际操作人">`:esc(x.responsible||'')}</td><td>${canEdit?`<input name="notes" value="${esc(x.notes)}" placeholder="备注">`:esc(x.notes)}</td><td>${canEdit?`<button class="secondary" onclick="saveMaterialSpare(${x.id})">保存</button> `:''}<details><summary>历史（${x.history.length}）</summary><ol>${history||'<li>暂无处理历史</li>'}</ol></details></td></tr>`}).join('')||'<tr><td colspan="9" class="hint">暂无报废坏件；从库存变动明细登记报废后会自动出现在这里。</td></tr>'}
+async function saveMaterialSpare(id){let tr=`#materialSparesBody tr[data-material-spare="${id}"]`;let row=$(tr);try{await api('/api/material-spares/'+id,{method:'PATCH',body:JSON.stringify({serial_number:row.querySelector('[name="serial_number"]').value.trim(),status:row.querySelector('[name="status"]').value,responsible:row.querySelector('[name="responsible"]').value.trim(),notes:row.querySelector('[name="notes"]').value.trim()})});await loadSpares()}catch(e){uiToast(e.message)}}
+function renderServerSpares(){let d=window.spareData||{server_spares:[],statuses:[]},filter=$('#serverSpareFilter').value,rows=d.server_spares.filter(x=>!filter||x.status===filter),canEdit=me&&(me.can_edit||me.is_admin);if($('#serverSpareFilter').options.length===1)for(let state of d.statuses)$('#serverSpareFilter').add(new Option(state,state));let counts=Object.fromEntries(d.statuses.map(state=>[state,d.server_spares.filter(x=>x.status===state).length]));$('#serverSpareStats').innerHTML=`<div class="server-stat"><b>${d.server_spares.length}</b><span>更换部件</span></div><div class="server-stat"><b>${counts['待检测']||0}</b><span>待检测</span></div><div class="server-stat"><b>${counts['待RMA']||0}</b><span>待RMA</span></div><div class="server-stat"><b>${counts['报废']||0}</b><span>报废</span></div>`;$('#serverSparesBody').innerHTML=rows.map(x=>{let opts=d.statuses.map(state=>`<option ${state===x.status?'selected':''}>${esc(state)}</option>`).join(''),history=x.history.map(h=>`<li><span>${esc(h.from_status)} → ${esc(h.to_status)}</span><small>操作账号：${esc(h.operator_username||'未知')} · 实际操作人：${esc(h.responsible)} · ${esc(h.operated_at)}${h.notes?' · '+esc(h.notes):''}</small></li>`).join('');return `<tr data-spare-id="${x.id}"><td>${esc(x.room)} / ${esc(x.rack)}</td><td><code>${esc(x.server_sn)}</code></td><td>U${x.node_u}</td><td>${esc(x.kp_name)}</td><td><code>${esc(x.node_sn)}</code></td><td>${canEdit?`<select name="status">${opts}</select>`:`<span class="badge">${esc(x.status)}</span>`}</td><td>${canEdit?`<input name="responsible" value="${esc(x.responsible)}" placeholder="实际操作人">`:esc(x.responsible)}</td><td>${canEdit?`<input name="notes" value="${esc(x.notes)}" placeholder="备注">`:esc(x.notes)}</td><td>${canEdit?`<button class="secondary" onclick="saveServerSpare(${x.id})">保存</button> `:''}<details><summary>历史（${x.history.length}）</summary><ol>${history||'<li>暂无状态历史</li>'}</ol></details></td></tr>`}).join('')||'<tr><td colspan="9" class="hint">暂时没有服务器更换部件；更换任意有 SN 的 U 位部件后，旧 SN 会自动登记。</td></tr>'}
+async function saveServerSpare(id){let tr=`#serverSparesBody tr[data-spare-id="${id}"]`,row=$(tr);try{await api('/api/server-spares/'+id,{method:'PATCH',body:JSON.stringify({status:row.querySelector('[name="status"]').value,responsible:row.querySelector('[name="responsible"]').value.trim(),notes:row.querySelector('[name="notes"]').value.trim()})});await loadSpares()}catch(e){uiToast(e.message)}}
+$('#spareMaterialSearch').oninput=()=>{renderSpareMaterials();renderMaterialSpares()};$('#materialSpareFilter').onchange=renderMaterialSpares;$('#serverSpareFilter').onchange=renderServerSpares;
+async function loadServers(){let {servers}=await api('/api/servers');window.allServers=servers;renderServerMap()}
+function renderServerMap(){let all=window.allServers||[],q=($('#serverSearch').value||'').trim().toLowerCase(),filtered=all.filter(x=>`${x.room} ${x.rack} ${x.sn}`.toLowerCase().includes(q)),rooms=[...new Set(all.map(x=>x.room))].sort(),totalRacks=new Set(all.map(x=>x.room+'\u0000'+x.rack)).size;$('#serverStats').innerHTML=`<div class=\"server-stat\"><b>${all.length}</b><span>台 GB300</span></div><div class=\"server-stat\"><b>${totalRacks}</b><span>个机柜位置</span></div><div class=\"server-stat\"><b>${rooms.length}</b><span>个机房</span></div><div class=\"server-stat muted-stat\"><b>${filtered.length}</b><span>当前匹配服务器</span></div>`;$('#serverOverview').classList.toggle('hidden',!!selectedServerRoom);$('#serverInterior').classList.toggle('hidden',!selectedServerRoom);$('#serverAssetsCard').classList.toggle('hidden',!selectedServerRoom);if(!selectedServerRoom){let visibleRooms=rooms.filter(room=>filtered.some(x=>x.room===room));$('#serverOverview').innerHTML=visibleRooms.map(room=>{let roomServers=all.filter(x=>x.room===room),matches=filtered.filter(x=>x.room===room),racks=new Set(roomServers.map(x=>x.rack)),markers=Array.from({length:Math.min(racks.size,24)},()=>'<i></i>').join('');return `<button class=\"room-card\" data-room=\"${esc(room)}\"><span class=\"room-schematic\"><span class=\"room-schematic-label\">${esc(room)} · 机房</span><span class=\"room-schematic-racks\">${markers}</span><span class=\"room-schematic-door\">入口</span></span><span class=\"room-card-info\"><strong>${esc(room)} 机房</strong><span>${roomServers.length} 台服务器 · ${racks.size} 个机柜位置${q?` · 匹配 ${matches.length} 台`:''}</span></span></button>`}).join('')||'<p class=\"hint\">没有符合条件的机房或服务器</p>';document.querySelectorAll('.room-card').forEach(card=>card.onclick=()=>{selectedServerRoom=card.dataset.room;renderServerMap()});return}let roomServers=all.filter(x=>x.room===selectedServerRoom),roomFiltered=filtered.filter(x=>x.room===selectedServerRoom),keys=new Set(roomFiltered.map(x=>x.room+'\u0000'+x.rack)),racks=new Map();for(let x of roomServers){let key=x.room+'\u0000'+x.rack;if(!racks.has(key))racks.set(key,[]);racks.get(key).push(x)}let roomRackCount=new Set(roomServers.map(x=>x.rack)).size,maxPosition=Math.max(12,...roomServers.map(x=>Number((x.rack.match(/\d+$/)||[])[0]||0)));$('#serverRoomTitle').textContent=`${selectedServerRoom} 机房布局`;$('#serverAssetsTitle').textContent=`${selectedServerRoom} 服务器清单`;$('#serverRoomSummary').textContent=`${roomServers.length} 台服务器 · ${roomRackCount} 个机柜位置`+(q?` · 当前匹配 ${roomFiltered.length} 台`:'');let roomRacks=[...racks.entries()].filter(([k])=>keys.has(k));let letters=[...new Set(roomRacks.map(([k])=>k.split('\u0000')[1].match(/^[A-Za-z]+/)?.[0]||'?'))].sort();let rows=letters.map((letter,ri)=>{let tiles=Array.from({length:maxPosition-2},(_,i)=>{let rack=letter+String(i+3).padStart(2,'0'),key=selectedServerRoom+'\u0000'+rack,items=racks.get(key);return keys.has(key)?`<button class=\"rack-tile occupied\" data-room=\"${esc(selectedServerRoom)}\" data-rack=\"${esc(rack)}\"><span class=\"rack-name\">${esc(rack)}</span><span class=\"rack-unit\">${items.length} 台</span><span class=\"rack-server\">GB300</span></button>`:`<div class=\"rack-tile rack-empty\"><span>${esc(rack)}</span></div>`}).join('');return `<div class=\"rack-row ${ri===2?'row-gap':''}\"><div class=\"rack-label\">${esc(letter)} 排</div><div class=\"rack-cells\">${tiles}</div></div>`}).join('');$('#serverRooms').innerHTML=rows||'<p class=\"hint\">当前机房没有匹配的服务器位置</p>';document.querySelectorAll('.rack-tile.occupied').forEach(btn=>btn.onclick=()=>openRack(btn.dataset.room,btn.dataset.rack));renderServerAssets(roomFiltered)}
+function renderServerAssets(rows){let canEdit=me&&(me.can_edit||me.is_admin);$('#serverAssetsBody').innerHTML=rows.map(x=>{let edit=editingServerId===x.id;if(edit)return `<tr id="server-row-${x.id}"><td><input data-field="room" maxlength="100" value="${esc(x.room)}"></td><td><input data-field="rack" maxlength="100" value="${esc(x.rack)}"></td><td><input data-field="sn" maxlength="100" value="${esc(x.sn)}"></td><td class="serverActionHeader"><div class="server-actions"><button onclick="saveServer(${x.id})">保存</button><button class="secondary" onclick="cancelServerEdit()">取消</button></div><div class="status server-edit-error"></div></td></tr>`;return `<tr><td>${esc(x.room)}</td><td>${esc(x.rack)}</td><td><code>${esc(x.sn)}</code></td><td class="serverActionHeader">${canEdit?`<div class="server-actions"><button class="secondary" onclick="editServer(${x.id})">编辑</button>${me.is_admin?`<button class="danger" onclick="deleteServer(${x.id})">删除</button>`:''}</div>`:''}</td></tr>`}).join('')||'<tr><td colspan="4" class="hint">该机房暂无 GB300 服务器记录</td></tr>';document.querySelectorAll('.serverActionHeader').forEach(el=>el.classList.toggle('hidden',!canEdit))}
+function editServer(id){editingServerId=id;renderServerMap()}
+function cancelServerEdit(){editingServerId=null;renderServerMap()}
+async function saveServer(id){let tr=$('#server-row-'+id),payload={};for(let field of ['room','rack','sn'])payload[field]=tr.querySelector(`[data-field="${field}"]`).value;try{await api('/api/servers/'+id,{method:'PATCH',body:JSON.stringify(payload)});editingServerId=null;await loadServers()}catch(e){tr.querySelector('.server-edit-error').textContent=e.message}}
+async function deleteServer(id){let row=(window.allServers||[]).find(x=>x.id===id);if(!row)return;if(!await uiConfirm(`确认删除服务器 ${row.sn}（${row.room} / ${row.rack}）？`))return;try{await api('/api/servers/'+id,{method:'DELETE'});await loadServers()}catch(e){uiToast(e.message)}}
+const serverFieldLabels={room:'机房/房间',rack:'机柜位置',sn:'SN'};
+$('#serverImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#serverImportMsg').textContent='正在识别并校验服务器表…';$('#serverImportPreview').innerHTML='';try{let r=await fetch('/api/import-servers-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');renderServerImportPreview(d)}catch(err){$('#serverImportMsg').textContent=err.message}};
+function renderServerImportPreview(d){$('#serverImportMsg').textContent=`识别到第 ${d.header_row} 行为表头，共 ${d.rows} 条服务器记录。${d.token?'可以确认导入。':'请处理问题后重新上传。'}`;let mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(serverFieldLabels[k]||k)} ← ${esc(v)}</span>`).join(' '),errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join(''),warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join(''),samples=(d.samples||[]).map(x=>`<tr><td>${esc(x.room)}</td><td>${esc(x.rack)}</td><td>${esc(x.sn)}</td></tr>`).join('');$('#serverImportPreview').innerHTML=`<div class="card"><b>字段对应</b><div class="import-mapping">${mapping||'没有识别到必需字段'}</div>${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}${samples?`<p><b>导入预览（最多显示 8 行）</b></p><div class="tablewrap"><table><thead><tr><th>机房/房间</th><th>机柜位置</th><th>SN</th></tr></thead><tbody>${samples}</tbody></table></div>`:''}${d.token?`<button id="confirmServerImport">确认导入 ${d.rows} 条服务器</button>`:''}</div>`;if(d.token)$('#confirmServerImport').onclick=()=>confirmServerImport(d.token)}
+async function confirmServerImport(token){if(!await uiConfirm('确认将预览中的服务器记录导入 GB300 服务器清单？重复 SN 会阻止整批写入。'))return;try{let d=await api('/api/import-servers',{method:'POST',body:JSON.stringify({token})});$('#serverImportMsg').textContent=`已导入 ${d.imported} 条服务器记录。`;$('#serverImportPreview').innerHTML='';$('#serverImportForm').reset();editingServerId=null;await loadServers()}catch(e){$('#serverImportMsg').textContent=e.message}}
+const serverComponentFieldLabels={server_sn:'服务器 SN',node_sn:'部件 NODE_SN',node:'NODE / U 位',kp_name:'KP_NAME',bmc_mac:'BMC_MAC'};
+$('#serverComponentImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#serverComponentImportMsg').textContent='正在识别并校验 46U 部件清单…';$('#serverComponentImportPreview').innerHTML='';try{let r=await fetch('/api/import-server-components-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取部件表');renderServerComponentImportPreview(d)}catch(err){$('#serverComponentImportMsg').textContent=err.message}};
+function renderServerComponentImportPreview(d){$('#serverComponentImportMsg').textContent=`识别到第 ${d.header_row} 行为表头，共 ${d.rows} 条部件记录，涉及 ${d.servers||0} 台服务器。${d.token?'可以确认导入。':'请处理问题后重新上传。'}`;let mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(serverComponentFieldLabels[k]||k)} ← ${esc(v)}</span>`).join(' '),errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join(''),warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join(''),samples=(d.samples||[]).map(x=>`<tr><td>${esc(x.server_sn)}</td><td>${x.node_u}</td><td>${esc(x.node_sn)}</td><td>${esc(x.kp_name)}</td><td>${esc(x.bmc_mac||'')}</td></tr>`).join('');$('#serverComponentImportPreview').innerHTML=`<div class="card"><b>字段对应</b><div class="import-mapping">${mapping||'没有识别到必需字段'}</div>${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}${samples?`<p><b>部件预览（最多显示 8 行）</b></p><div class="tablewrap"><table><thead><tr><th>服务器 SN</th><th>NODE / U</th><th>NODE_SN</th><th>KP_NAME</th><th>BMC_MAC</th></tr></thead><tbody>${samples}</tbody></table></div>`:''}${d.token?`<button id="confirmServerComponentImport">确认导入 ${d.rows} 条部件到 ${d.servers} 台服务器</button>`:''}</div>`;if(d.token)$('#confirmServerComponentImport').onclick=()=>confirmServerComponentImport(d.token)}
+async function confirmServerComponentImport(token){if(!await uiConfirm('确认按 SN 替换本文件涉及服务器的部件清单？每台服务器会按 NODE 显示 46U，未列出的 U 位显示为空位。'))return;try{let d=await api('/api/import-server-components',{method:'POST',body:JSON.stringify({token})});$('#serverComponentImportMsg').textContent=`已导入 ${d.imported} 条部件记录，更新 ${d.servers} 台服务器。`;$('#serverComponentImportPreview').innerHTML='';$('#serverComponentImportForm').reset()}catch(e){$('#serverComponentImportMsg').textContent=e.message}}
+function renderServerComponentStack(server,components,operations=[]){
+ let byU=new Map(components.map(x=>[Number(x.node_u),x])),opsByU=new Map();
+ for(let op of operations){let u=Number(op.node_u);if(!opsByU.has(u))opsByU.set(u,[]);opsByU.get(u).push(op)}
+ let canEdit=me&&(me.can_edit||me.is_admin);
+ let slots=Array.from({length:46},(_,i)=>46-i).map(u=>{
+  let x=byU.get(u),ops=opsByU.get(u)||[];
+  let history=ops.map(op=>{
+   let oldSn='',newSn='';
+   try{oldSn=JSON.parse(op.old_data||'{}').node_sn||'';newSn=JSON.parse(op.new_data||'{}').node_sn||''}catch{}
+   return '<li><span>'+esc(op.action)+' · <code>'+esc(oldSn||'—')+'</code> → <code>'+esc(newSn||'—')+'</code></span><small>操作账号：'+esc(op.operator_username||'未知')+' · 实际操作人：'+esc(op.responsible)+' · '+esc(op.operated_at)+'</small></li>'
+  }).join('');
+  let opText=ops.length?'<details class="u-history"><summary>操作记录（'+ops.length+'）</summary><ol>'+history+'</ol></details>':'';
+  let content=x?'<div class="u-component"><strong>'+esc(x.kp_name)+'</strong><span><b>NODE_SN</b> <code>'+esc(x.node_sn)+'</code></span><span><b>BMC_MAC</b> <code>'+esc(x.bmc_mac||'—')+'</code></span></div>':'<span class="u-empty-label">空位</span>';
+  return '<div class="u-slot '+(x?'filled':'empty')+'"><span class="u-number">U'+u+'</span><div class="u-main">'+content+opText+'</div>'+(canEdit&&x?'<button class="secondary u-edit" data-server="'+server.id+'" data-component="'+x.id+'" data-u="'+u+'">编辑 / 更换 SN</button>':'')+'</div>'
+ }).join('');
+ return '<section class="component-device"><div class="component-device-title"><div><strong>GB300 · '+esc(server.sn)+'</strong><span>'+esc(server.room)+' / '+esc(server.rack)+'</span></div><span>'+components.length+' / 46 U</span></div><div class="u-stack">'+slots+'</div></section>'
+}
+async function openRack(room,rack){let rows=(window.allServers||[]).filter(x=>x.room===room&&x.rack===rack);$('#rackDialog').dataset.room=room;$('#rackDialog').dataset.rack=rack;$('#rackDialogTitle').textContent=room+' · '+rack+' · 46U';$('#rackDialogSummary').textContent='GB300 服务器 · '+rows.length+' 台';$('#rackDialogBody').innerHTML='<p class="hint">正在读取设备信息…</p>';$('#rackDialog').showModal();try{let detail=await Promise.all(rows.map(x=>api('/api/servers/'+x.id+'/components')));$('#rackDialogBody').innerHTML=detail.map(x=>renderServerComponentStack(x.server,x.components,x.operations)).join('');$('#rackDialogBody').querySelectorAll('.u-edit').forEach(btn=>btn.onclick=()=>{let d=detail.find(x=>String(x.server.id)===btn.dataset.server),component=d.components.find(x=>String(x.id)===btn.dataset.component);openComponentEditor(d.server,component,Number(btn.dataset.u))})}catch(e){$('#rackDialogBody').innerHTML='<p class="import-errors">设备信息读取失败：'+esc(e.message)+'</p>'}}
+function openComponentEditor(server,component,u){let f=$('#componentEditForm');f.reset();f.dataset.componentId=component.id;f.elements.node_sn.value=component.node_sn;f.elements.responsible.value=me?.username||'';$('#componentEditU').value='U'+component.node_u;$('#componentEditKp').value=component.kp_name;$('#componentEditTitle').textContent='编辑 / 更换 U'+u+' 的 NODE_SN';$('#componentEditAction').value='部件更换';$('#componentEditMsg').textContent='更换会把原 NODE_SN 自动登记为服务器备件；信息修正仅用于更正录入错误。U 位、KP_NAME 和 BMC_MAC 固定不变。';$('#componentEditDialog').showModal()}
+$('#componentEditForm').onsubmit=async e=>{e.preventDefault();let f=e.target,payload={node_sn:f.elements.node_sn.value.trim(),responsible:f.elements.responsible.value.trim(),action:$('#componentEditAction').value};try{await api('/api/server-components/'+f.dataset.componentId,{method:'PATCH',body:JSON.stringify(payload)});$('#componentEditDialog').close();await openRack($('#rackDialog').dataset.room,$('#rackDialog').dataset.rack)}catch(err){$('#componentEditMsg').textContent=err.message}}
+$('#serverSearch').oninput=renderServerMap;$('#serverBackButton').onclick=()=>{selectedServerRoom=null;renderServerMap()};$('#rackDialog').onclick=e=>{if(e.target===$('#rackDialog'))$('#rackDialog').close()};
+start();
+
+
+/* ===== 物料台账改造：字段映射编辑 / 分页预览 / 行内编辑 / 删除二次确认 ===== */
+const IMPORT_PREVIEW_FIELDS=['category','model','description','planned','supplier','location','owner','notes'];
+const IMPORT_PAGE_SIZE=50;
+window.importPage=0;window.currentImportData=null;window.itemImportPreviewRows=[];
+
+async function api(url,opts={}){
+  opts.headers={'Content-Type':'application/json',...(opts.headers||{})};
+  if(csrf&&opts.method&&opts.method!=='GET')opts.headers['X-CSRF-Token']=csrf;
+  let r=await fetch(url,opts),d=await r.json().catch(()=>({}));
+  if(!r.ok){let e=Error(d.error||'请求失败');e.data=d;throw e}
+  return d;
+}
+
+function previewCell(value,row,field,type='text',readOnly=false){
+  return `<input class="preview-edit" data-row="${row}" data-field="${field}" type="${type}" value="${esc(value??'')}"${readOnly?' readonly title="更新模式下型号是匹配键，不可修改"':''} aria-label="第${row+1}行 ${esc(importFieldNames[field]||field)}">`;
+}
+
+function collectPreviewRows(container,source,fields,numberFields=[]){
+  return source.map((row,i)=>{
+    let copy={...row};
+    for(let field of fields){
+      let input=container.querySelector(`[data-row="${i}"][data-field="${field}"]`);
+      if(!input)continue;
+      if(numberFields.includes(field))copy[field]=input.value.trim()===''?'':Number(input.value);
+      else copy[field]=input.value.trim();
+    }
+    return copy;
+  });
+}
+
+function collectVisiblePreview(){
+  const box=$('#importPreview');if(!box)return;
+  const rows=window.itemImportPreviewRows||[];
+  const start=window.importPage*IMPORT_PAGE_SIZE;
+  rows.slice(start,start+IMPORT_PAGE_SIZE).forEach((row,i)=>{
+    IMPORT_PREVIEW_FIELDS.forEach(f=>{
+      const el=box.querySelector(`[data-row="${i}"][data-field="${f}"]`);
+      if(!el||el.readOnly)return;
+      row[f]=(f==='planned')?(el.value.trim()===''?'':(Number.isFinite(Number(el.value))?Number(el.value):el.value)):el.value.trim();
+    });
+  });
+}
+
+function renderImportPage(){
+  const d=window.currentImportData||{};
+  const rows=window.itemImportPreviewRows||[];
+  const start=window.importPage*IMPORT_PAGE_SIZE;
+  const page=rows.slice(start,start+IMPORT_PAGE_SIZE);
+  const lockModel=(d.mode||'create')==='update';
+  const html=page.map((x,i)=>`<tr><td>${previewCell(x.category,i,'category')}</td><td>${previewCell(x.model,i,'model','text',lockModel)}</td><td>${previewCell(x.description,i,'description')}</td><td>${previewCell(x.planned,i,'planned','number')}</td><td>${previewCell(x.supplier,i,'supplier')}</td><td>${previewCell(x.location,i,'location')}</td><td>${previewCell(x.owner,i,'owner')}</td><td>${previewCell(x.notes,i,'notes')}</td></tr>`).join('');
+  const body=$('#importPreviewBody');
+  if(body)body.innerHTML=html||'<tr><td colspan="8" class="hint">没有可预览的数据行</td></tr>';
+  const total=Math.max(1,Math.ceil(rows.length/IMPORT_PAGE_SIZE));
+  const info=$('#importPageInfo');
+  if(info)info.textContent=`第 ${rows.length?start+1:0}–${Math.min(start+IMPORT_PAGE_SIZE,rows.length)} 条 / 共 ${rows.length} 条 · 第 ${window.importPage+1}/${total} 页`;
+  const prev=$('#importPrevPage'),next=$('#importNextPage');
+  if(prev)prev.disabled=window.importPage<=0;
+  if(next)next.disabled=window.importPage>=total-1;
+}
+
+function switchImportPage(delta){
+  collectVisiblePreview();
+  const total=Math.max(1,Math.ceil((window.itemImportPreviewRows||[]).length/IMPORT_PAGE_SIZE));
+  window.importPage=Math.min(total-1,Math.max(0,window.importPage+delta));
+  renderImportPage();
+}
+
+function renderImportPreview(d){
+  window.currentImportData=d;
+  window.itemImportPreviewRows=d.preview_rows||d.samples||[];
+  window.importPage=0;
+  const mode=d.mode||'create';
+  const idx=d.mapping_index||{},reverse={};
+  Object.entries(idx).forEach(([f,i])=>{reverse[i]=f});
+  const headerOpts=(d.header_candidates||[]).map(x=>`<option value="${x.row}"${x.row===d.header_row?' selected':''}>第 ${x.row} 行：${esc((Array.isArray(x.cells)?x.cells:[]).filter(v=>String(v).trim()).slice(0,6).join(' | ')||'（空行）')}</option>`).join('');
+  const colIdxs=d.active_columns||(d.columns||[]).map((_,i)=>i);
+  const colHtml=colIdxs.map(i=>{
+    const name=(d.columns||[])[i]||'';
+    const opts=['<option value="">— 忽略此列 —</option>'].concat(
+      IMPORT_PREVIEW_FIELDS.map(f=>`<option value="${f}"${reverse[i]===f?' selected':''}>${esc(importFieldNames[f]||f)}</option>`)).join('');
+    return `<div class="map-col"><label>第 ${i+1} 列 · ${esc(String(name||'（无表头）').slice(0,40))}</label><select data-col="${i}">${opts}</select></div>`;
+  }).join('');
+  const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(importFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' ');
+  const verb=mode==='update'?'确认更新':'确认导入';
+  $('#importMsg').textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'校验通过，可'+(mode==='update'?'更新':'导入')+'。':'请调整下面的表头行或字段对应后重新校验。'}`;
+  $('#importPreview').innerHTML=`<div class="card">
+    <div class="import-section"><b>① 表头所在行</b>
+      <div class="map-row"><select id="importHeaderRow">${headerOpts||`<option value="${d.header_row}">第 ${d.header_row} 行</option>`}</select><button type="button" class="secondary" onclick="applyImportMapping()">应用修改并重新校验</button></div>
+      <p class="hint">自动识别会扫描前 30 个非空行。表头不在第一行、或识别错了，直接在这里选。</p></div>
+    <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
+      <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
+      <div id="importMapping" class="import-mapping-grid">${colHtml}</div>
+      <p class="hint">${mode==='create'?'新增模式必需：型号、名称/规格、计划数量；类别可用整批默认值。':'更新模式必需：型号（作为匹配键，不可修改）；未提供的列保留台账现值。'}</p></div>
+    ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
+    ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
+    <div class="import-section"><b>③ 预览数据（可直接修改）</b>
+      <div class="import-pager"><button type="button" class="secondary" id="importPrevPage" onclick="switchImportPage(-1)">上一页</button><span id="importPageInfo"></span><button type="button" class="secondary" id="importNextPage" onclick="switchImportPage(1)">下一页</button></div>
+      <div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th></tr></thead><tbody id="importPreviewBody"></tbody></table></div></div>
+    ${d.token?`<div class="import-section"><button type="button" id="confirmImport">${verb} ${d.rows} 条</button></div>`:''}
+  </div>`;
+  renderImportPage();
+  if(d.token)$('#confirmImport').onclick=()=>confirmImport(d.token);
+}
+
+async function applyImportMapping(){
+  const d=window.currentImportData;
+  if(!d||!d.edit_token){$('#importMsg').textContent='预览已失效，请重新上传 Excel 文件';return}
+  const mapping_index={},used={};let conflict=null;
+  document.querySelectorAll('#importMapping [data-col]').forEach(sel=>{
+    const f=sel.value;if(!f)return;
+    if(used[f]!==undefined&&!conflict)conflict=importFieldNames[f]||f;
+    used[f]=Number(sel.dataset.col);mapping_index[f]=Number(sel.dataset.col);
+  });
+  if(conflict){uiToast(`字段「${conflict}」被指定了多列，请给每个字段只留一列。`);return}
+  if(!await uiConfirm('重新校验会按原始 Excel 重新抽取数据，之前在预览表格里手改的内容需要重填。继续吗？'))return;
+  const header_row=Number($('#importHeaderRow').value)||d.header_row;
+  $('#importMsg').textContent='正在按新的表头行和字段对应重新校验…';
+  try{
+    const r=await api('/api/import-remap',{method:'POST',body:JSON.stringify({edit_token:d.edit_token,header_row,mapping_index})});
+    renderImportPreview(r);
+  }catch(e){$('#importMsg').textContent=e.message}
+}
+
+async function confirmImport(token){
+  collectVisiblePreview();
+  const d=window.currentImportData||{};
+  const verb=d.mode==='update'?'按预览更新这些物料的台账字段（型号与库存数量不变）':'将预览中的物料写入物料台账';
+  if(!await uiConfirm(`确认${verb}？本次不会写入库存变动明细。`))return;
+  try{
+    const r=await api('/api/import-items',{method:'POST',body:JSON.stringify({token,rows:window.itemImportPreviewRows})});
+    $('#importMsg').textContent=d.mode==='update'?`已更新 ${r.imported} 条物料台账。`:`已导入 ${r.imported} 条物料，库存变动明细未改动。`;
+    $('#importPreview').innerHTML='';$('#importForm').reset();
+    window.currentImportData=null;window.itemImportPreviewRows=[];
+    await loadItems();filterItems();
+  }catch(e){$('#importMsg').textContent=e.message}
+}
+
+$('#importForm').onsubmit=async e=>{
+  e.preventDefault();
+  const file=e.target.elements.file.files[0];if(!file)return;
+  $('#importMsg').textContent='正在读取并检查表格…';$('#importPreview').innerHTML='';
+  try{
+    const r=await fetch('/api/import-preview',{method:'POST',headers:{
+      'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'X-CSRF-Token':csrf,
+      'X-Category-Default':e.target.elements.default_category.value,
+      'X-Import-Mode':e.target.elements.import_mode.value},body:file});
+    const d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');
+    renderImportPreview(d);
+  }catch(err){$('#importMsg').textContent=err.message}
+};
+
+async function loadItems(){
+  const {items}=await api('/api/items');
+  const canEdit=me.is_admin||me.can_edit;
+  $('#itemsBody').innerHTML=items.map(x=>`<tr data-id="${x.id}" data-category="${esc(x.category)}"><td data-field="category">${esc(x.category)}</td><td data-field="model">${esc(x.model)}</td><td data-field="description">${esc(x.description)}</td><td data-field="supplier">${esc(x.supplier)}</td><td data-field="planned">${x.planned}</td><td>${x.received}</td><td>${x.used}</td><td>${x.damaged}</td><td><b>${x.available}</b></td><td>${x.not_received}</td><td data-field="location">${esc(x.location)}</td><td data-field="owner">${esc(x.owner)}</td><td data-field="notes">${esc(x.notes)}</td><td class="row-actions">${canEdit?`<button type="button" class="secondary" onclick="startEditItem(${x.id})">编辑</button>`:''}${me.is_admin?`<button type="button" class="danger" onclick="deleteItem(${x.id})">删除</button>`:''}</td></tr>`).join('');
+  fillMovementModels(items);window.allItems=items;filterItems();
+  const hint=$('#emptyLedgerHint');if(hint)hint.classList.toggle('hidden',items.length>0||!me.is_admin);
+}
+
+function startEditItem(id){
+  const tr=document.querySelector(`#itemsBody tr[data-id="${id}"]`);
+  const it=(window.allItems||[]).find(x=>x.id===id);
+  if(!tr||!it)return;
+  ['category','model','description','supplier','planned','location','owner','notes'].forEach(f=>{
+    const td=tr.querySelector(`[data-field="${f}"]`);if(!td)return;
+    if(f==='category')td.innerHTML=`<select data-edit="${f}"><option${it.category==='光模块'?' selected':''}>光模块</option><option${it.category==='线缆'?' selected':''}>线缆</option></select>`;
+    else if(f==='planned')td.innerHTML=`<input data-edit="${f}" type="number" min="0" value="${it.planned}">`;
+    else td.innerHTML=`<input data-edit="${f}" value="${esc(it[f]||'')}">`;
+  });
+  tr.querySelector('.row-actions').innerHTML=`<button type="button" onclick="saveItemEdit(${id})">保存</button> <button type="button" class="secondary" onclick="loadItems()">取消</button>`;
+}
+
+async function saveItemEdit(id){
+  const tr=document.querySelector(`#itemsBody tr[data-id="${id}"]`);if(!tr)return;
+  const payload={};
+  tr.querySelectorAll('[data-edit]').forEach(el=>{payload[el.dataset.edit]=el.value});
+  try{
+    await api('/api/items/'+id,{method:'PATCH',body:JSON.stringify(payload)});
+    await loadItems();await loadMoves();
+  }catch(e){uiToast(e.message);await loadItems()}
+}
+
+async function deleteItem(id){
+  const it=(window.allItems||[]).find(x=>x.id===id);if(!it)return;
+  const attempt=confirmModel=>api('/api/items/'+id,{method:'DELETE',body:JSON.stringify(confirmModel?{confirm_model:confirmModel}:{})});
+  try{
+    await attempt('');
+    await loadItems();await loadMoves();return;
+  }catch(e){
+    const d=e.data||{};
+    if(!d.requires_confirm){uiToast(e.message);return}
+    const c=d.counts||{};
+    const msg=`该物料已有 ${c.movements||0} 条库存变动明细、${c.spares||0} 条坏件 SN 记录、${c.cases||0} 条备件单。\n\n删除会一并抹掉这些历史（系统只保留一份删除前快照供追溯），界面上不可恢复。\n\n如确需删除，请输入完整型号：${d.model}`;
+    const typed=await uiPrompt(msg,d.model);
+    if(typed===null)return;
+    try{
+      await attempt(typed.trim());
+      await loadItems();await loadMoves();uiToast('已删除；删除前快照已写入审计记录。','ok');
+    }catch(e2){uiToast(e2.message)}
+  }
+}
+
+
+
+/* ===== 页面内确认/输入/提示：替代被内置浏览器拦截的原生弹窗 ===== */
+function uiModal(opts){
+  return new Promise(resolve=>{
+    const wrap=document.createElement('div');
+    wrap.className='ui-modal-backdrop';
+    wrap.innerHTML=`<div class="ui-modal"><h3>${esc(opts.title||'请确认')}</h3><p class="ui-modal-msg">${esc(opts.message||'')}</p>${opts.input?`<input id="uiModalInput" autocomplete="off" placeholder="${esc(opts.placeholder||'')}">`:''}<div class="ui-modal-error"></div><div class="ui-modal-actions"><button type="button" class="secondary" data-act="cancel">取消</button><button type="button"${opts.danger?' class="danger"':''} data-act="ok">${esc(opts.okText||'确定')}</button></div></div>`;
+    const done=v=>{document.removeEventListener('keydown',onKey);wrap.remove();resolve(v)};
+    const submit=()=>{
+      let val=true;
+      if(opts.input){
+        val=(wrap.querySelector('#uiModalInput')?.value||'').trim();
+        if(!val){wrap.querySelector('.ui-modal-error').textContent='请输入内容';return}
+        if(opts.expected&&val!==opts.expected){
+          wrap.querySelector('.ui-modal-error').textContent=`输入不匹配，请完整输入「${opts.expected}」`;return;
+        }
+      }
+      done(val);
+    };
+    const onKey=e=>{
+      if(e.key==='Escape')done(opts.input?null:false);
+      if(e.key==='Enter'&&opts.input)submit();
+    };
+    document.addEventListener('keydown',onKey);
+    wrap.addEventListener('click',e=>{
+      const act=e.target?.dataset?.act;
+      if(act==='cancel'||e.target===wrap)done(opts.input?null:false);
+      else if(act==='ok')submit();
+    });
+    document.body.appendChild(wrap);
+    if(opts.input)wrap.querySelector('#uiModalInput')?.focus();
+  });
+}
+function uiConfirm(message,title='请确认'){return uiModal({title,message,okText:'确定'}).then(v=>v===true)}
+function uiPrompt(message,expected,title='二次确认'){return uiModal({title,message,input:true,expected,placeholder:'完整输入：'+expected,okText:'确认删除',danger:true})}
+function uiToast(msg,type='err'){
+  let t=document.getElementById('uiToast');
+  if(!t){t=document.createElement('div');t.id='uiToast';document.body.appendChild(t)}
+  t.className='ui-toast '+(type==='ok'?'ok':'err');t.textContent=String(msg||'');
+  clearTimeout(window._uiToastTimer);
+  window._uiToastTimer=setTimeout(()=>t.remove(),5000);
+}
+
+
+
+/* ===== 回收站 / 操作日志 ===== */
+async function loadRecycle(){
+  try{
+    const d=await api('/api/recycle');
+    window.recycleRecords=d.records||[];
+    $('#recycleBody').innerHTML=window.recycleRecords.map(r=>`<tr>
+      <td>${esc(r.deleted_at||'')}</td><td>${esc(r.operator||'—')}</td><td>${esc(r.category||'')}</td>
+      <td>${esc(r.model||'')}</td><td>${esc(r.description||'')}</td>
+      <td>${r.movement_count||0}</td><td>${r.spare_count||0}</td>
+      <td>${r.restored_at?'<span class="badge">已还原</span>':(r.can_restore?'<span class="badge">可还原</span>':`<span class="import-errors">${esc(r.reason)}</span>`)}</td>
+      <td class="row-actions"><button type="button" class="secondary" data-act="detail" data-id="${r.id}">详情</button>${r.can_restore?`<button type="button" data-act="restore" data-id="${r.id}">还原</button>`:''}<button type="button" class="danger" data-act="purge" data-id="${r.id}">彻底删除</button></td></tr>`).join('')||'<tr><td colspan="9" class="hint">回收站为空</td></tr>';
+    $('#recycle').onclick=e=>{
+      const btn=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
+      if(!btn)return;
+      const act=btn.dataset.act,rid=Number(btn.dataset.id);
+      if(act==='detail')return showRecycleDetail(rid);
+      if(act==='restore')return restoreRecycle([rid]);
+      if(act==='purge')return purgeRecycle([rid]);
+      if(act==='refresh')return loadRecycle();
+      if(act==='restore-all')return restoreAllRecycle();
+      if(act==='purge-all')return purgeAllRecycle();
+    };
+    $('#operationLogBody').innerHTML=(d.logs||[]).map(x=>`<tr><td>${esc(x.operated_at||'')}</td><td>${esc(x.operator||'—')}</td><td>${esc(x.action||'')}</td><td>${esc(x.target||'')}</td><td>${esc(x.detail||'')}</td></tr>`).join('')||'<tr><td colspan="5" class="hint">暂无操作记录</td></tr>';
+    const pending=window.recycleRecords.filter(x=>x.can_restore).length;
+    $('#recycleMsg').textContent=`共 ${window.recycleRecords.length} 条删除记录，其中 ${pending} 条可还原。`;
+  }catch(e){uiToast(e.message)}
+}
+
+function renderRecycleDetail(rec){
+  const s=rec.snapshot||{},it=s.item||{};
+  const fields=[['类别',it.category],['型号',it.model],['名称/规格',it.description],['供应商/品牌',it.supplier],
+    ['计划数量',it.planned],['存放位置',it.location],['负责人',it.owner],['备注',it.notes]]
+    .map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v??'')}</td></tr>`).join('');
+  const mv=(s.movements||[]).map(x=>`<tr><td>${esc(x.moved_at||'')}</td><td>${esc(x.kind||'')}</td><td>${x.qty}</td><td>${esc(x.location||'')}</td><td>${esc(x.owner||'')}</td><td>${esc(x.notes||'')}</td></tr>`).join('');
+  const sp=(s.material_spares||[]).map(x=>`<tr><td>${esc(x.serial_number||'（未补录）')}</td><td>${esc(x.status||'')}</td><td>${esc(x.responsible||'')}</td></tr>`).join('');
+  const el=$('#recycleDetail');
+  if(!el)return;
+  el.innerHTML=`<div class="card"><div class="toolbar"><h3>删除前快照 · ${esc(it.model||'')}</h3><button type="button" class="secondary" data-act="close">收起</button></div>
+    <div class="grid"><div><table><tbody>${fields}</tbody></table></div><div>
+      <b>库存变动明细（${(s.movements||[]).length}）</b><div class="tablewrap"><table><thead><tr><th>日期</th><th>类型</th><th>数量</th><th>位置</th><th>负责人</th><th>备注</th></tr></thead><tbody>${mv||'<tr><td colspan="6" class="hint">无</td></tr>'}</tbody></table></div>
+      <b>坏件 SN（${(s.material_spares||[]).length}）</b><div class="tablewrap"><table><thead><tr><th>SN</th><th>状态</th><th>责任人</th></tr></thead><tbody>${sp||'<tr><td colspan="3" class="hint">无</td></tr>'}</tbody></table></div>
+    </div></div></div>`;
+  el.onclick=e=>{if(e.target&&e.target.dataset&&e.target.dataset.act==='close')closeRecycleDetail()};
+  if(el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  const msg=$('#recycleMsg');
+  if(msg)msg.textContent=`已展开删除前快照：${it.model||''}（${(s.movements||[]).length} 条明细 / ${(s.material_spares||[]).length} 条坏件）。点「收起」关闭。`;
+}
+
+function showRecycleDetail(id){
+  try{
+    const rec=(window.recycleRecords||[]).find(x=>x.id===id);
+    if(rec&&rec.snapshot){renderRecycleDetail(rec);return}
+    api('/api/recycle/'+id).then(d=>renderRecycleDetail({snapshot:d.snapshot||{}}))
+      .catch(e=>{$('#recycleMsg').textContent='详情加载失败：'+e.message;uiToast(e.message)});
+  }catch(e){
+    $('#recycleMsg').textContent='详情加载失败：'+e.message;uiToast(e.message);
+  }
+}
+function closeRecycleDetail(){const el=$('#recycleDetail');if(el)el.innerHTML=''}
+
+async function restoreRecycle(ids){
+  const ok=await uiConfirm(ids.length===1?'确认还原这条物料及其全部历史记录？':`确认还原选中的 ${ids.length} 条物料及其全部历史记录？`);
+  if(!ok)return;
+  try{
+    const r=await api('/api/recycle/restore',{method:'POST',body:JSON.stringify({ids})});
+    let msg=`已还原 ${r.restored} 条物料。`;
+    if(r.skipped&&r.skipped.length)msg+=` 跳过 ${r.skipped.length} 条：`+r.skipped.slice(0,3).map(x=>`#${x.id} ${x.reason}`).join('；');
+    $('#recycleMsg').textContent=msg;uiToast(msg,'ok');closeRecycleDetail();
+    await loadRecycle();await loadItems();await loadMoves();
+  }catch(e){$('#recycleMsg').textContent='还原失败：'+e.message;uiToast(e.message)}
+}
+async function restoreAllRecycle(){
+  const ids=(window.recycleRecords||[]).filter(x=>x.can_restore).map(x=>x.id);
+  if(!ids.length){uiToast('没有可还原的记录');return}
+  return restoreRecycle(ids);
+}
+
+
+
+/* ===== 回收站彻底删除（不可逆） ===== */
+async function purgeRecycle(ids){
+  const recs=ids.map(id=>(window.recycleRecords||[]).find(x=>x.id===id)).filter(Boolean);
+  const names=recs.slice(0,3).map(x=>x.model||('#'+x.id)).join('、');
+  const msg=ids.length===1
+    ? `确认彻底删除「${names}」的删除前快照吗？\n\n此操作会永久移除回收站记录及其中的库存变动明细、坏件 SN 历史，之后无法再还原，且不可撤销。操作会记入操作日志。`
+    : `确认彻底删除 ${ids.length} 条回收站记录（${names}${ids.length>3?' 等':''}）吗？\n\n这些删除前快照会被永久移除，之后无法再还原，且不可撤销。操作会记入操作日志。`;
+  const ok=await uiConfirm(msg,'彻底删除（不可恢复）');
+  if(!ok)return;
+  try{
+    const r=await api('/api/recycle/purge',{method:'POST',body:JSON.stringify({ids})});
+    const m=`已彻底删除 ${r.purged} 条记录。`+(r.skipped&&r.skipped.length?` 跳过 ${r.skipped.length} 条。`:'');
+    $('#recycleMsg').textContent=m;uiToast(m,'ok');closeRecycleDetail();
+    await loadRecycle();
+  }catch(e){$('#recycleMsg').textContent='彻底删除失败：'+e.message;uiToast(e.message)}
+}
+async function purgeAllRecycle(){
+  const ids=(window.recycleRecords||[]).map(x=>x.id);
+  if(!ids.length){uiToast('回收站为空');return}
+  return purgeRecycle(ids);
+}
+
+
+
+/* ===== 入库明细导入：字段映射编辑 / 表头行 / 分页预览 ===== */
+const MOVEMENT_PREVIEW_FIELDS=['model','qty','date','category','kind','location','owner','notes'];
+const MOVEMENT_EDITABLE=['moved_at','qty','location','owner','notes'];
+const MOVEMENT_PAGE_SIZE=50;
+window.mvImportPage=0;window.mvImportData=null;window.movementImportPreviewRows=[];
+window.movementImportToken=null;
+
+function mvCell(value,row,field,type='text',readOnly=false){
+  return `<input class="preview-edit" data-row="${row}" data-field="${field}" type="${type}" value="${esc(value??'')}"${readOnly?' readonly':''} aria-label="第${row+1}行 ${esc(movementFieldNames[field]||field)}">`;
+}
+
+function collectMovementVisible(){
+  const box=$('#movementImportPreview');if(!box)return;
+  const rows=window.movementImportPreviewRows||[];
+  const start=window.mvImportPage*MOVEMENT_PAGE_SIZE;
+  rows.slice(start,start+MOVEMENT_PAGE_SIZE).forEach((row,i)=>{
+    MOVEMENT_EDITABLE.forEach(f=>{
+      const el=box.querySelector(`[data-row="${i}"][data-field="${f}"]`);
+      if(!el||el.readOnly)return;
+      row[f]=(f==='qty')?(el.value.trim()===''?'':(Number.isFinite(Number(el.value))?Number(el.value):el.value)):el.value.trim();
+    });
+  });
+}
+
+function renderMovementPage(){
+  const rows=window.movementImportPreviewRows||[];
+  const start=window.mvImportPage*MOVEMENT_PAGE_SIZE;
+  const page=rows.slice(start,start+MOVEMENT_PAGE_SIZE);
+  $('#movementPreviewBody').innerHTML=page.map((x,i)=>`<tr>
+    <td>${mvCell(x.moved_at,i,'moved_at','date')}</td><td>入库</td>
+    <td>${mvCell(x.category,i,'category','text',true)}</td>
+    <td>${mvCell(x.model,i,'model','text',true)}</td>
+    <td>${mvCell(x.qty,i,'qty','number')}</td>
+    <td>${mvCell(x.location,i,'location')}</td>
+    <td>${mvCell(x.owner,i,'owner')}</td>
+    <td>${mvCell(x.notes,i,'notes')}</td></tr>`).join('')||'<tr><td colspan="8" class="hint">没有可预览的数据行</td></tr>';
+  const total=Math.max(1,Math.ceil(rows.length/MOVEMENT_PAGE_SIZE));
+  $('#movementPageInfo').textContent=`第 ${rows.length?start+1:0}–${Math.min(start+MOVEMENT_PAGE_SIZE,rows.length)} 条 / 共 ${rows.length} 条 · 第 ${window.mvImportPage+1}/${total} 页`;
+  $('#mvPrevPage').disabled=window.mvImportPage<=0;
+  $('#mvNextPage').disabled=window.mvImportPage>=total-1;
+}
+
+function switchMovementPage(delta){
+  collectMovementVisible();
+  const total=Math.max(1,Math.ceil((window.movementImportPreviewRows||[]).length/MOVEMENT_PAGE_SIZE));
+  window.mvImportPage=Math.min(total-1,Math.max(0,window.mvImportPage+delta));
+  renderMovementPage();
+}
+
+function renderMovementImportPreview(d){
+  window.mvImportData=d;window.movementImportPreviewRows=d.preview_rows||d.samples||[];
+  window.mvImportPage=0;window.movementImportToken=d.token||null;
+  const idx=d.mapping_index||{},reverse={};
+  Object.entries(idx).forEach(([f,i])=>{reverse[i]=f});
+  const headerOpts=(d.header_candidates||[]).map(x=>`<option value="${x.row}"${x.row===d.header_row?' selected':''}>第 ${x.row} 行：${esc((Array.isArray(x.cells)?x.cells:[]).filter(v=>String(v).trim()).slice(0,6).join(' | ')||'（空行）')}</option>`).join('');
+  const colIdxs=d.active_columns||(d.columns||[]).map((_,i)=>i);
+  const colHtml=colIdxs.map(i=>{
+    const name=(d.columns||[])[i]||'';
+    const opts=['<option value="">— 忽略此列 —</option>'].concat(
+      MOVEMENT_PREVIEW_FIELDS.map(f=>`<option value="${f}"${reverse[i]===f?' selected':''}>${esc(movementFieldNames[f]||f)}</option>`)).join('');
+    return `<div class="map-col"><label>第 ${i+1} 列 · ${esc(String(name||'（无表头）').slice(0,40))}</label><select data-col="${i}">${opts}</select></div>`;
+  }).join('');
+  const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(movementFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' ');
+  const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  $('#movementImportMsg').textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'校验通过，可确认导入。':'请调整下面的表头行或字段对应后重新校验。'}`;
+  $('#movementImportPreview').innerHTML=`<div class="card">
+    <div class="import-section"><b>① 表头所在行</b>
+      <div class="map-row"><select id="movementHeaderRow">${headerOpts||`<option value="${d.header_row}">第 ${d.header_row} 行</option>`}</select><button type="button" class="secondary" data-act="mv-apply">应用修改并重新校验</button></div>
+      <p class="hint">自动识别扫描前 30 个非空行；猜错了直接在这里改。</p></div>
+    <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
+      <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
+      <div id="movementMapping" class="import-mapping-grid">${colHtml}</div>
+      <p class="hint">必需字段只有「型号」和「入库数量」；类别自动按型号从台账带出，其他列选填。数量列名不必叫「入库数量」，在这里指定即可。</p></div>
+    ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
+    ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
+    <div class="import-section"><b>③ 预览数据（日期、数量、位置、负责人、备注可修改）</b>
+      <div class="import-pager"><button type="button" class="secondary" id="mvPrevPage" data-act="mv-prev">上一页</button><span id="movementPageInfo"></span><button type="button" class="secondary" id="mvNextPage" data-act="mv-next">下一页</button></div>
+      <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
+    ${d.token?`<div class="import-section"><button type="button" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button></div>`:''}
+  </div>`;
+  $('#movementImportPreview').onclick=e=>{
+    const b=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
+    if(!b)return;
+    const act=b.dataset.act;
+    if(act==='mv-apply')return applyMovementMapping();
+    if(act==='mv-prev')return switchMovementPage(-1);
+    if(act==='mv-next')return switchMovementPage(1);
+    if(act==='mv-confirm')return confirmMovementImport(window.movementImportToken);
+  };
+  renderMovementPage();
+}
+
+async function applyMovementMapping(){
+  const d=window.mvImportData;
+  if(!d||!d.edit_token){$('#movementImportMsg').textContent='预览已失效，请重新上传 Excel 文件';return}
+  const mapping_index={},used={};let conflict=null;
+  document.querySelectorAll('#movementMapping [data-col]').forEach(sel=>{
+    const f=sel.value;if(!f)return;
+    if(used[f]!==undefined&&!conflict)conflict=movementFieldNames[f]||f;
+    used[f]=Number(sel.dataset.col);mapping_index[f]=Number(sel.dataset.col);
+  });
+  if(conflict){uiToast(`字段「${conflict}」被指定了多列，请给每个字段只留一列。`);return}
+  if(!await uiConfirm('重新校验会按原始 Excel 重新抽取数据，之前在预览表格里手改的内容需要重填。继续吗？'))return;
+  const header_row=Number($('#movementHeaderRow').value)||d.header_row;
+  $('#movementImportMsg').textContent='正在按新的表头行和字段对应重新校验…';
+  try{
+    const r=await api('/api/import-movements-remap',{method:'POST',body:JSON.stringify({edit_token:d.edit_token,header_row,mapping_index})});
+    renderMovementImportPreview(r);
+  }catch(e){$('#movementImportMsg').textContent=e.message}
+}
+
+async function confirmMovementImport(token){
+  collectMovementVisible();
+  if(!token){uiToast('请先修正预览中的错误');return}
+  if(!await uiConfirm('确认将预览中的记录作为「入库」写入库存变动明细？物料台账不变。'))return;
+  try{
+    const d=await api('/api/import-movements',{method:'POST',body:JSON.stringify({token,rows:window.movementImportPreviewRows})});
+    $('#movementImportMsg').textContent=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。`;
+    $('#movementImportPreview').innerHTML='';$('#movementImportForm').reset();
+    window.mvImportData=null;window.movementImportPreviewRows=[];window.movementImportToken=null;
+    await loadItems();await loadMoves();
+  }catch(e){$('#movementImportMsg').textContent=e.message}
+}
+
+$('#movementImportForm').onsubmit=async e=>{
+  e.preventDefault();
+  const file=e.target.elements.file.files[0];if(!file)return;
+  $('#movementImportMsg').textContent='正在读取并校验入库明细…';$('#movementImportPreview').innerHTML='';
+  try{
+    const r=await fetch('/api/import-movements-preview',{method:'POST',headers:{
+      'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'X-CSRF-Token':csrf},body:file});
+    const d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');
+    renderMovementImportPreview(d);
+  }catch(err){$('#movementImportMsg').textContent=err.message}
+};
+
+</script></body></html>
