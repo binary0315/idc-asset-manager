@@ -464,164 +464,251 @@ def parse_movement_import(data,user_id,default_category):
 def remap_movement_import(batch,header_row,mapping,token):
     return build_movement_preview(batch,header_row,mapping,token)
 
-SERVER_HEADERS={
-    'room':['机房','房间','房間','room','datacenter','site'],
-    'rack':['rack','rack#','racknumber','机柜','机柜位置','机柜编号','机柜号','机架位置','位置','location'],
-    'sn':['sn','序列号','服务器序列号','设备序列号','serialnumber','serialno','s/n','service tag'],
+# ===== GB300 导入：服务器清单 / 46U 部件（与物料台账、入库明细共用预览范式）=====
+SERVER_FIELDS = ('room', 'rack', 'sn')
+SERVER_LABELS = {'room': '机房/房间', 'rack': '机柜位置', 'sn': 'SN'}
+SERVER_HEADERS = {
+    'room': ['机房', '房间', '房間', 'room', 'datacenter', 'site', 'datahall',
+             'data hall', 'hall', '机房名称', '区域'],
+    'rack': ['rack', 'rack#', 'racknumber', '机柜', '机柜位置', '机柜编号',
+             '机柜号', '机架位置', '位置', 'location'],
+    'sn': ['sn', '序列号', '服务器序列号', '设备序列号', 'serialnumber',
+           'serialno', 's/n', 'service tag', 'servicetag'],
+}
+COMPONENT_FIELDS = ('server_sn', 'node_sn', 'node', 'kp_name', 'bmc_mac')
+COMPONENT_LABELS = {'server_sn': 'SN', 'node_sn': 'NODE_SN', 'node': 'NODE / U 位',
+                    'kp_name': 'KP_NAME', 'bmc_mac': 'BMC_MAC'}
+COMPONENT_HEADERS = {
+    'server_sn': ['SN', 'SERVER_SN', 'SERVER_SERIAL_NUMBER', '服务器SN', '主机SN', '序列号'],
+    'node_sn': ['NODE_SN', 'COMPONENT_SN', 'COMPONENT_SERIAL_NUMBER', '部件SN', '节点SN'],
+    'node': ['NODE', 'U位', 'U位编号', 'UNIT_NUMBER', 'RU', 'U', '机位'],
+    'kp_name': ['KP_NAME', 'PART_NAME', 'COMPONENT_NAME', '部件名称', '部件名'],
+    'bmc_mac': ['BMC_MAC', 'BMC_MAC_ADDRESS', 'MAC', 'MAC地址'],
+}
+GB_SPECS = {
+    'servers': dict(fields=SERVER_FIELDS, labels=SERVER_LABELS, headers=SERVER_HEADERS,
+                    required=SERVER_FIELDS, store='SERVER_IMPORT_TOKENS'),
+    # BMC_MAC 值可为空，列本身也不再是必需字段。
+    'components': dict(fields=COMPONENT_FIELDS, labels=COMPONENT_LABELS,
+                       headers=COMPONENT_HEADERS,
+                       required=('server_sn', 'node_sn', 'node', 'kp_name'),
+                       store='SERVER_COMPONENT_IMPORT_TOKENS'),
 }
 
-def server_header_match(value):
-    text=norm_header(value)
-    if not text:return None,[]
-    exact={field for field,aliases in SERVER_HEADERS.items() if text in {norm_header(a) for a in aliases}}
-    if len(exact)==1:return next(iter(exact)),[]
-    found=[]
-    for field,aliases in SERVER_HEADERS.items():
+
+def gb_header_match(value, headers_map):
+    """先精确匹配，再按最长别名子串匹配；一个表头对多个字段时视为不明确。"""
+    text = norm_header(value)
+    if not text:
+        return None, []
+    exact = {f for f, aliases in headers_map.items()
+             if text in {norm_header(a) for a in aliases}}
+    if len(exact) == 1:
+        return next(iter(exact)), []
+    matches = []
+    for field, aliases in headers_map.items():
         for alias in aliases:
-            key=norm_header(alias)
-            if key and len(key)>=2 and key in text:found.append((len(key),field))
-    if not found:return None,[]
-    longest=max(size for size,_ in found); fields=sorted({field for size,field in found if size==longest})
-    return (fields[0],[]) if len(fields)==1 else (None,fields)
+            key = norm_header(alias)
+            if not key:
+                continue
+            min_len = 2 if any('\u3400' <= ch <= '\u9fff' for ch in key) else 3
+            if len(key) >= min_len and key in text:
+                matches.append((len(key), field, key))
+    if not matches:
+        return None, []
+    top = max(x[0] for x in matches)
+    fields = sorted({x[1] for x in matches if x[0] == top})
+    return (fields[0], []) if len(fields) == 1 else (None, fields)
 
-def parse_server_import(data,user_id):
-    matrix=xlsx_matrix(data)
-    nonempty=[(rn,row) for rn,row in matrix if any(v is not None and str(v).strip() for v in row)]
-    if not nonempty:raise ValueError('工作表为空')
-    best=None;best_map={};best_issues=[];best_score=-1
-    for rn,row in nonempty[:10]:
-        found={};issues=[]
-        for ix,val in enumerate(row):
-            field,ambiguous=server_header_match(val)
-            if ambiguous:issues.append(f'表头“{val}”对应不明确')
+
+def auto_detect_gb_header(candidates, spec):
+    best_rn = None; best_score = -1; best_map = {}; best_issues = []
+    for rn, headers in candidates.items():
+        found = {}; issues = []
+        for ix, val in enumerate(headers):
+            field, ambiguous = gb_header_match(val, spec['headers'])
+            if ambiguous:
+                issues.append('表头「%s」可能对应多个字段：' % val
+                              + '、'.join(spec['labels'].get(x, x) for x in ambiguous))
             if field:
-                if field in found:issues.append(f'多个表头都匹配到“{field}”')
-                else:found[field]=ix
-        score=len(found)+(5 if all(k in found for k in ('room','rack','sn')) else 0)
-        if score>best_score:best,best_map,best_issues,best_score=(rn,row),found,issues,score
-    header_row,headers=best
-    labels={'room':'机房/房间','rack':'机柜位置','sn':'SN'}
-    missing=[k for k in ('room','rack','sn') if k not in best_map]
-    errors=list(dict.fromkeys(best_issues))
-    if missing:errors.append('表头缺少必需字段：'+'、'.join(labels[k] for k in missing))
-    if missing:return {'header_row':header_row,'mapping':{k:headers[v] for k,v in best_map.items()},'rows':0,'errors':errors,'warnings':[],'samples':[],'token':None}
-    mapped=set(best_map.values());unknown=[str(v) for i,v in enumerate(headers) if i not in mapped and str(v or '').strip()]
-    warnings=[]
-    if unknown:warnings.append('未识别的列会忽略：'+'、'.join(unknown[:12])+('…' if len(unknown)>12 else ''))
-    with db() as c:existing={r['sn'] for r in c.execute('SELECT sn FROM servers')}
-    rows=[];seen=set()
-    for rn,row in nonempty:
-        if rn<=header_row:continue
-        def get(field):
-            ix=best_map[field]
-            return str(row[ix] if ix<len(row) and row[ix] is not None else '').strip()
-        room,rack,sn=get('room'),get('rack'),get('sn');issues=[]
-        if not room:issues.append('机房/房间为空')
-        if not rack:issues.append('机柜位置为空')
-        if not sn:issues.append('SN 为空')
-        if sn and sn in seen:issues.append('本文件中 SN 重复')
-        if sn and sn in existing:issues.append('系统中已存在该 SN')
-        seen.add(sn)
-        record={'room':room,'rack':rack,'sn':sn,'row':rn}
-        if issues:errors.append(f'第 {rn} 行：'+'；'.join(issues))
-        rows.append(record)
-    if len(errors)>100:errors=errors[:100]+[f'另有 {len(errors)-100} 条错误未显示']
-    if not rows:errors.append('表头之后没有可导入的数据行')
-    if len(rows)>IMPORT_ROW_LIMIT:errors.append('数据行数超过 10,000 行限制')
-    token=None
-    if not errors:
-        token=secrets.token_urlsafe(24);SERVER_IMPORT_TOKENS[token]={'user_id':user_id,'expires':int(time.time())+1200,'rows':rows}
-    return {'header_row':header_row,'mapping':{k:headers[v] for k,v in best_map.items()},'rows':len(rows),'errors':errors,'warnings':warnings,'samples':rows[:8],'preview_rows':rows,'token':token}
+                if field in found:
+                    issues.append('表头「%s」与前面的列冲突：都对应「%s」'
+                                  % (val, spec['labels'].get(field, field)))
+                else:
+                    found[field] = ix
+        score = len(found) + (8 if all(k in found for k in spec['required']) else 0)
+        if score > best_score:
+            best_rn, best_score, best_map, best_issues = rn, score, found, issues
+    return best_rn, best_map, best_issues
 
-SERVER_COMPONENT_HEADERS={
-    'server_sn':['SN','SERVER_SN','SERVER_SERIAL_NUMBER'],
-    'node_sn':['NODE_SN','COMPONENT_SN','COMPONENT_SERIAL_NUMBER'],
-    'node':['NODE','U位','U位编号','UNIT_NUMBER'],
-    'kp_name':['KP_NAME','PART_NAME','COMPONENT_NAME','部件名称'],
-    'bmc_mac':['BMC_MAC','BMC_MAC_ADDRESS'],
-}
 
-def component_header_match(value):
-    text=norm_header(value)
-    if not text:return None,[]
-    exact={field for field,aliases in SERVER_COMPONENT_HEADERS.items() if text in {norm_header(a) for a in aliases}}
-    if len(exact)==1:return next(iter(exact)),[]
-    matches=[]
-    for field,aliases in SERVER_COMPONENT_HEADERS.items():
-        for alias in aliases:
-            key=norm_header(alias)
-            if len(key)>=7 and key in text:matches.append((len(key),field))
-    if not matches:return None,[]
-    longest=max(size for size,_ in matches);fields=sorted({field for size,field in matches if size==longest})
-    return (fields[0],[]) if len(fields)==1 else (None,fields)
-
-def parse_server_components_import(data,user_id):
-    matrix=xlsx_matrix(data)
-    nonempty=[(rn,row) for rn,row in matrix if any(v is not None and str(v).strip() for v in row)]
-    if not nonempty:raise ValueError('工作表为空')
-    best=None;best_map={};best_issues=[];best_score=-1
-    for rn,row in nonempty[:10]:
-        found={};issues=[]
-        for ix,val in enumerate(row):
-            field,ambiguous=component_header_match(val)
-            if ambiguous:issues.append(f'表头“{val}”对应不明确')
-            if field:
-                if field in found:issues.append(f'多个表头都匹配到“{field}”')
-                else:found[field]=ix
-        score=len(found)+(8 if all(k in found for k in SERVER_COMPONENT_HEADERS) else 0)
-        if score>best_score:best,best_map,best_issues,best_score=(rn,row),found,issues,score
-    header_row,headers=best
-    labels={'server_sn':'SN','node_sn':'NODE_SN','node':'NODE','kp_name':'KP_NAME','bmc_mac':'BMC_MAC'}
-    missing=[k for k in SERVER_COMPONENT_HEADERS if k not in best_map]
-    errors=list(dict.fromkeys(best_issues))
-    if missing:errors.append('表头缺少必需字段：'+ '、'.join(labels[k] for k in missing))
-    if missing:return {'header_row':header_row,'mapping':{k:headers[v] for k,v in best_map.items()},'rows':0,'servers':0,'errors':errors,'warnings':[],'samples':[],'token':None}
-    mapped=set(best_map.values());unknown=[str(v) for i,v in enumerate(headers) if i not in mapped and str(v or '').strip()]
-    warnings=[]
-    if unknown:warnings.append('其他列会忽略（包括源表中的机房/机柜列；位置继续使用服务器台账）: '+'、'.join(unknown[:12])+('…' if len(unknown)>12 else ''))
+def gb_context(kind):
     with db() as c:
-        existing={r['sn'] for r in c.execute('SELECT sn FROM servers')}
-        existing_details={r['server_sn'] for r in c.execute('SELECT DISTINCT server_sn FROM server_components')}
-    rows=[];seen_nodes=set();seen_node_sns=set();counts={};serials=set()
-    for rn,row in nonempty:
-        if rn<=header_row:continue
+        existing = {r['sn'] for r in c.execute('SELECT sn FROM servers')}
+        if kind == 'servers':
+            return {'existing': existing, 'seen': set()}
+        return {'existing': existing,
+                'existing_details': {r['server_sn'] for r in c.execute(
+                    'SELECT DISTINCT server_sn FROM server_components')},
+                'seen_nodes': set(), 'seen_node_sns': set(),
+                'counts': {}, 'serials': set()}
+
+
+def parse_server_row(get, rn, ctx):
+    room, rack, sn = get('room'), get('rack'), get('sn')
+    issues = []
+    for label, val in (('机房/房间', room), ('机柜位置', rack), ('SN', sn)):
+        if not val:
+            issues.append(label + '为空')
+        elif len(val) > 200:
+            issues.append(label + '不能超过 200 个字符')
+    if sn and sn in ctx['seen']:
+        issues.append('本文件中 SN 重复')
+    if sn and sn in ctx['existing']:
+        issues.append('系统中已存在该 SN')
+    ctx['seen'].add(sn)
+    return {'room': room, 'rack': rack, 'sn': sn}, issues
+
+
+def parse_component_row(get, rn, ctx):
+    server_sn = get('server_sn'); node_sn = get('node_sn')
+    node_raw = get('node'); kp_name = get('kp_name'); bmc_mac = get('bmc_mac')
+    issues = []; node_u = None
+    if not server_sn:
+        issues.append('SN 为空')
+    elif server_sn not in ctx['existing']:
+        issues.append('SN 未在服务器位置台账中找到')
+    if not node_sn:
+        issues.append('NODE_SN 为空')
+    if not kp_name:
+        issues.append('KP_NAME 为空')
+    for label, val in (('SN', server_sn), ('NODE_SN', node_sn),
+                       ('KP_NAME', kp_name), ('BMC_MAC', bmc_mac)):
+        if len(val) > 200:
+            issues.append(label + '不能超过 200 个字符')
+    try:
+        number = float(node_raw.replace(',', ''))
+        if not number.is_integer() or number < 1 or number > 46:
+            raise ValueError()
+        node_u = int(number)
+    except (ValueError, TypeError, AttributeError):
+        issues.append('NODE 必须是 1 到 46 的整数 U 位')
+    if server_sn and node_u is not None:
+        key = (server_sn, node_u)
+        if key in ctx['seen_nodes']:
+            issues.append('同一 SN 的 NODE U 位重复')
+        ctx['seen_nodes'].add(key)
+        ctx['counts'][server_sn] = ctx['counts'].get(server_sn, 0) + 1
+    if server_sn and node_sn:
+        key = (server_sn, node_sn)
+        if key in ctx['seen_node_sns']:
+            issues.append('同一 SN 的 NODE_SN 重复')
+        ctx['seen_node_sns'].add(key)
+    if server_sn:
+        ctx['serials'].add(server_sn)
+    return {'server_sn': server_sn, 'node_sn': node_sn, 'node_u': node_u or 0,
+            'kp_name': kp_name, 'bmc_mac': bmc_mac}, issues
+
+
+def build_gb_preview(batch, header_row, mapping, token, kind, header_issues=None):
+    """自动识别与手动改映射共用同一套校验；纯空列自动隐藏，映射用原始列索引。"""
+    spec = GB_SPECS[kind]
+    nonempty = batch['nonempty']; candidates = batch['header_candidates']
+    if header_row not in candidates:
+        raise ValueError('请选择有效的表头所在行')
+    columns = list(candidates[header_row])
+    width = max([len(columns)] + [len(row) for _, row in nonempty])
+    columns += [''] * (width - len(columns))
+    active = active_column_indexes(columns, nonempty, header_row)
+    errors = list(dict.fromkeys(header_issues or [])); warnings = []
+    missing = [f for f in spec['required'] if f not in mapping]
+    if missing:
+        errors.append('缺少必需字段：'
+                      + '、'.join(spec['labels'][f] for f in missing)
+                      + '。可在下方「字段对应」中手动指定对应列，或改选表头所在行。')
+    mapped_cols = {i for f, i in mapping.items() if f in spec['fields']}
+    unknown = [str(v) for i, v in enumerate(columns)
+               if i not in mapped_cols and str(v).strip()]
+    if unknown:
+        warnings.append('未识别的列将忽略：' + '、'.join(unknown[:12])
+                        + ('…' if len(unknown) > 12 else ''))
+    if kind == 'components' and 'bmc_mac' not in mapping:
+        warnings.append('未提供 BMC_MAC 列，导入后这些部件的 MAC 为空（BMC_MAC 为可选字段）。')
+    ctx = gb_context(kind)
+    rows = []
+    for rn, row in [(rn, row) for rn, row in nonempty if rn > header_row]:
+        if not any(str(v).strip() for v in row):
+            continue
         def get(field):
-            ix=best_map[field]
-            return str(row[ix] if ix<len(row) and row[ix] is not None else '').strip()
-        server_sn,node_sn,node_raw,kp_name,bmc_mac=(get(k) for k in ('server_sn','node_sn','node','kp_name','bmc_mac'))
-        issues=[];node_u=None
-        if not server_sn:issues.append('SN 为空')
-        elif server_sn not in existing:issues.append('SN 未在服务器位置台账中找到')
-        if not node_sn:issues.append('NODE_SN 为空')
-        if not kp_name:issues.append('KP_NAME 为空')
-        try:
-            number=float(node_raw.replace(',',''))
-            if not number.is_integer() or number<1 or number>46:raise ValueError()
-            node_u=int(number)
-        except Exception:issues.append('NODE 必须是 1 到 46 的整数 U 位')
-        if server_sn and node_u is not None:
-            key=(server_sn,node_u)
-            if key in seen_nodes:issues.append('同一 SN 的 NODE U 位重复')
-            seen_nodes.add(key);counts[server_sn]=counts.get(server_sn,0)+1
-        if server_sn and node_sn:
-            key=(server_sn,node_sn)
-            if key in seen_node_sns:issues.append('同一 SN 的 NODE_SN 重复')
-            seen_node_sns.add(key)
-        if server_sn:serials.add(server_sn)
-        record={'server_sn':server_sn,'node_sn':node_sn,'node_u':node_u or 0,'kp_name':kp_name,'bmc_mac':bmc_mac,'row':rn}
-        if issues:errors.append(f'第 {rn} 行：'+'；'.join(issues))
+            ix = mapping.get(field, -1)
+            raw = row[ix] if 0 <= ix < len(row) else ''
+            return str(raw if raw is not None else '').strip()
+        record, issues = (parse_server_row if kind == 'servers'
+                          else parse_component_row)(get, rn, ctx)
+        record['row'] = rn
+        if issues:
+            errors.append(f'第 {rn} 行：' + '；'.join(issues))
         rows.append(record)
-    unusual=[sn for sn,count in counts.items() if count!=37]
-    if unusual:warnings.append('部分 SN 的部件数不是预期的 37 个 1U 部件；请确认该 SN 的记录是否完整。')
-    replacing=serials & existing_details
-    if replacing:warnings.append(f'确认后将替换 {len(replacing)} 台服务器现有的 46U 部件清单。')
-    if len(errors)>100:errors=errors[:100]+[f'另有 {len(errors)-100} 条错误未显示']
-    if not rows:errors.append('表头之后没有可导入的部件记录')
-    if len(rows)>IMPORT_ROW_LIMIT:errors.append('数据行数超过 10,000 行限制')
-    token=None
-    if not errors:
-        token=secrets.token_urlsafe(24);SERVER_COMPONENT_IMPORT_TOKENS[token]={'user_id':user_id,'expires':int(time.time())+1200,'rows':rows,'serials':sorted(serials)}
-    return {'header_row':header_row,'mapping':{k:headers[v] for k,v in best_map.items()},'rows':len(rows),'servers':len(serials),'warnings':warnings,'errors':errors,'samples':rows[:8],'preview_rows':rows,'token':token}
+    server_count = 0
+    if kind == 'components':
+        unusual = [sn for sn, count in ctx['counts'].items() if count != 37]
+        if unusual:
+            warnings.append('部分 SN 的部件数不是预期的 37 个 1U 部件；请确认该 SN 的记录是否完整。')
+        replacing = ctx['serials'] & ctx['existing_details']
+        if replacing:
+            warnings.append(f'确认后将替换 {len(replacing)} 台服务器现有的 46U 部件清单。')
+        server_count = len(ctx['serials'])
+    if len(errors) > 100:
+        errors = errors[:100] + [f'另有 {len(errors) - 100} 条错误未显示']
+    if not rows:
+        errors.append('表头之后没有可导入的数据行' if kind == 'servers'
+                      else '表头之后没有可导入的部件记录')
+    if len(rows) > IMPORT_ROW_LIMIT:
+        errors.append('数据行数超过 10,000 行限制')
+    can_import = not errors and bool(rows)
+    batch.update({'header_row': header_row, 'mapping': mapping,
+                  'rows': rows, 'columns': columns})
+    if kind == 'components':
+        batch['serials'] = sorted(ctx['serials'])
+    result = {'header_row': header_row, 'columns': columns,
+              'active_columns': active,
+              'hidden_columns': len(columns) - len(active),
+              'header_candidates': [{'row': rn, 'cells': cells[:12]}
+                                    for rn, cells in candidates.items()],
+              'mapping': {f: (columns[i] if 0 <= i < len(columns) else str(i))
+                          for f, i in mapping.items()},
+              'mapping_index': dict(mapping), 'rows': len(rows),
+              'errors': errors, 'warnings': warnings,
+              'samples': rows[:8], 'preview_rows': rows,
+              'token': token if can_import else None,
+              'edit_token': token, 'can_import': can_import}
+    if kind == 'components':
+        result['servers'] = server_count
+    return result
+
+
+def parse_gb_import(data, user_id, kind):
+    matrix, nonempty = item_matrix(data)
+    candidates = header_candidates(nonempty)
+    header_row, mapping, issues = auto_detect_gb_header(candidates, GB_SPECS[kind])
+    token = secrets.token_urlsafe(24)
+    batch = {'user_id': user_id, 'expires': int(time.time()) + 1200,
+             'matrix': matrix, 'nonempty': nonempty,
+             'header_candidates': candidates, 'header_row': header_row,
+             'mapping': mapping, 'rows': [], 'columns': candidates[header_row],
+             'kind': kind}
+    if kind == 'components':
+        batch['serials'] = []
+    result = build_gb_preview(batch, header_row, mapping, token, kind,
+                              header_issues=issues)
+    prune_import_tokens()
+    (SERVER_IMPORT_TOKENS if kind == 'servers'
+     else SERVER_COMPONENT_IMPORT_TOKENS)[token] = batch
+    return result
+
+
+def remap_gb_import(batch, header_row, mapping, token):
+    return build_gb_preview(batch, header_row, mapping, token, batch['kind'])
 
 
 def make_xlsx(sheet_name,headers,rows,widths=None):
@@ -1029,7 +1116,7 @@ class Handler(BaseHTTPRequestHandler):
             if not u:return
             n=int(self.headers.get('Content-Length','0'))
             if n<=0 or n>IMPORT_LIMIT:return self.send(400,{'error':'请选择有效的 .xlsx 文件（最大 20 MB）'})
-            try:result=parse_server_components_import(self.rfile.read(n),u['id'])
+            try:result=parse_gb_import(self.rfile.read(n),u['id'],'components')
             except ValueError as e:return self.send(400,{'error':str(e)})
             except Exception:return self.send(400,{'error':'Excel 文件结构无法读取，请另存为标准 .xlsx 文件后重试'})
             return self.send(200,result)
@@ -1040,6 +1127,23 @@ class Handler(BaseHTTPRequestHandler):
             except:return self.send(400,{'error':'无法读取导入确认请求'})
             token=str(d.get('token',''));batch=SERVER_COMPONENT_IMPORT_TOKENS.pop(token,None)
             if not batch or batch['user_id']!=u['id'] or batch['expires']<int(time.time()):return self.send(400,{'error':'部件清单预览已失效，请重新上传文件'})
+            edited=d.get('rows')
+            if edited is not None:
+                try:
+                    if not isinstance(edited,list) or len(edited)!=len(batch['rows']):
+                        raise ValueError('编辑后的行数与预览不一致，请重新上传')
+                    ctx=gb_context('components');clean=[]
+                    for i,raw in enumerate(edited,1):
+                        vals={'server_sn':str(raw.get('server_sn','')).strip(),
+                              'node_sn':str(raw.get('node_sn','')).strip(),
+                              'node':str(raw.get('node_u','')).strip(),
+                              'kp_name':str(raw.get('kp_name','')).strip(),
+                              'bmc_mac':str(raw.get('bmc_mac','')).strip()}
+                        rec,issues=parse_component_row(lambda f:vals.get(f,''),i,ctx)
+                        if issues:raise ValueError(f'第 {i} 行：'+'；'.join(issues))
+                        clean.append(rec)
+                    batch['rows']=clean;batch['serials']=sorted(ctx['serials'])
+                except ValueError as e:return self.send(400,{'error':str(e)})
             try:
                 with db() as c:
                     current={r['sn'] for r in c.execute('SELECT sn FROM servers')}
@@ -1054,7 +1158,7 @@ class Handler(BaseHTTPRequestHandler):
             if not u:return
             n=int(self.headers.get('Content-Length','0'))
             if n<=0 or n>IMPORT_LIMIT:return self.send(400,{'error':'请选择有效的 .xlsx 文件（最大 20 MB）'})
-            try:result=parse_server_import(self.rfile.read(n),u['id'])
+            try:result=parse_gb_import(self.rfile.read(n),u['id'],'servers')
             except ValueError as e:return self.send(400,{'error':str(e)})
             except Exception:return self.send(400,{'error':'Excel 文件结构无法读取，请另存为标准 .xlsx 文件后重试'})
             return self.send(200,result)
@@ -1065,6 +1169,19 @@ class Handler(BaseHTTPRequestHandler):
             except:return self.send(400,{'error':'无法读取导入确认请求'})
             token=str(d.get('token',''));batch=SERVER_IMPORT_TOKENS.pop(token,None)
             if not batch or batch['user_id']!=u['id'] or batch['expires']<int(time.time()):return self.send(400,{'error':'预览已失效，请重新上传文件'})
+            edited=d.get('rows')
+            if edited is not None:
+                try:
+                    if not isinstance(edited,list) or len(edited)!=len(batch['rows']):
+                        raise ValueError('编辑后的行数与预览不一致，请重新上传')
+                    ctx=gb_context('servers');clean=[]
+                    for i,raw in enumerate(edited,1):
+                        vals={f:str(raw.get(f,'')).strip() for f in SERVER_FIELDS}
+                        rec,issues=parse_server_row(lambda f:vals.get(f,''),i,ctx)
+                        if issues:raise ValueError(f'第 {i} 行：'+'；'.join(issues))
+                        clean.append(rec)
+                    batch['rows']=clean
+                except ValueError as e:return self.send(400,{'error':str(e)})
             try:
                 with db() as c:
                     for server in batch['rows']:
@@ -1073,6 +1190,33 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入期间发现重复 SN，整批未写入；请重新预览文件'})
             return self.send(200,{'ok':True,'imported':len(batch['rows'])})
+
+        if p in ('/api/import-servers-remap','/api/import-server-components-remap'):
+            u=self.require('can_edit')
+            if not u:return
+            kind='servers' if p=='/api/import-servers-remap' else 'components'
+            store=SERVER_IMPORT_TOKENS if kind=='servers' else SERVER_COMPONENT_IMPORT_TOKENS
+            try:d=self.body()
+            except:return self.send(400,{'error':'无法读取字段映射请求'})
+            token=str(d.get('edit_token',''));batch=store.get(token)
+            if not batch or batch['user_id']!=u['id'] or batch['expires']<int(time.time()):
+                return self.send(400,{'error':'预览已失效，请重新上传 Excel 文件'})
+            try:
+                header_row=int(d.get('header_row'))
+                raw=d.get('mapping_index') or {}
+                if not isinstance(raw,dict):raise ValueError('字段映射格式不正确')
+                spec=GB_SPECS[kind];mapping={};used=set()
+                for field,col in raw.items():
+                    if field not in spec['fields']:continue
+                    ix=int(col)
+                    if ix<0 or ix>=len(batch['columns']):raise ValueError(f'列序号 {ix} 超出表格范围')
+                    if ix in used:raise ValueError('同一列不能同时对应多个字段')
+                    used.add(ix);mapping[field]=ix
+                result=remap_gb_import(batch,header_row,mapping,token)
+            except (ValueError,TypeError,KeyError) as e:
+                return self.send(400,{'error':f'字段映射无效：{e}'})
+            return self.send(200,result)
+
         if p=='/api/import-preview':
             u=self.require('can_edit')
             if not u:return
