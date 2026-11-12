@@ -16,7 +16,7 @@ MOVEMENT_IMPORT_TOKENS = {}
 SERVER_IMPORT_TOKENS = {}
 SERVER_COMPONENT_IMPORT_TOKENS = {}
 SERVER_SPARE_STATUSES = ('待检测','可用备件','待RMA','RMA处理中','RMA已完成','报废','其他')
-SERVER_SPARE_NOTES_LIMIT = 500
+SPARE_NOTES_LIMIT = 500  # 物料坏件与服务器备件统一口径
 # 历史表用 server_id 关联（SN 可变）。-1 表示原服务器已删除、历史已归档，不会再被复用 SN 错挂。
 ARCHIVED_SERVER_ID = -1
 MATERIAL_SPARE_STATUSES = ('待处理','待RMA','RMA处理中','RMA已完成','可用备件','报废','其他')
@@ -1564,6 +1564,7 @@ class Handler(BaseHTTPRequestHandler):
             if not serial or len(serial)>150:return self.send(400,{'error':'SN必填，最多 150 字'})
             if status not in MATERIAL_SPARE_STATUSES or status=='待处理':return self.send(400,{'error':'请填写SN并选择处理状态'})
             if len(responsible)>100:return self.send(400,{'error':'负责人最多 100 字'})
+            if len(notes)>SPARE_NOTES_LIMIT:return self.send(400,{'error':f'备注最多 {SPARE_NOTES_LIMIT} 字'})
             try:
                 with db() as c:
                     old=c.execute('SELECT * FROM material_spares WHERE id=?',(spare_id,)).fetchone()
@@ -1615,7 +1616,7 @@ class Handler(BaseHTTPRequestHandler):
             status=str(d.get('status','')).strip();responsible=str(d.get('responsible','')).strip();notes=str(d.get('notes','')).strip()
             if status not in SERVER_SPARE_STATUSES:return self.send(400,{'error':'备件状态无效'})
             if not responsible or len(responsible)>100:return self.send(400,{'error':'实际操作人必填，最多 100 字'})
-            if len(notes)>SERVER_SPARE_NOTES_LIMIT:return self.send(400,{'error':f'备注最多 {SERVER_SPARE_NOTES_LIMIT} 字'})
+            if len(notes)>SPARE_NOTES_LIMIT:return self.send(400,{'error':f'备注最多 {SPARE_NOTES_LIMIT} 字'})
             try:
                 with db() as c:
                     old=c.execute('SELECT status FROM server_spares WHERE id=?',(spare_id,)).fetchone()
