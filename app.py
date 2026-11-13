@@ -578,24 +578,75 @@ def gb_header_match(value, headers_map):
 
 
 def auto_detect_gb_header(candidates, spec):
-    best_rn = None; best_score = -1; best_map = {}; best_issues = []
+    """两阶段表头识别：精确别名先占位，再只对仍缺失的字段做模糊匹配。
+    gbgInfo 一类的导出表含 NODE_SN_KP、BF3_BMC_MAC、OOB_OS_MAC、CX8_*_MAC 等衍生列，
+    旧逻辑用子串「先到先得」会让它们抢走 NODE_SN / BMC_MAC，随后精确列反被判成冲突，
+    整批被阻断。现在这些列一律忽略并给警告，不产生错误。"""
+    headers_map = spec['headers']
+    labels = spec['labels']
+    exact_alias = {}
+    for field, aliases in headers_map.items():
+        for alias in aliases:
+            key = norm_header(alias)
+            if key:
+                exact_alias.setdefault(key, field)
+    mac_exact = {norm_header(a) for a in headers_map.get('bmc_mac', [])}
+    best_rn = None; best_score = -1; best_map = {}; best_issues = []; best_warnings = []
+
     for rn, headers in candidates.items():
-        found = {}; issues = []
+        found = {}; issues = []; warnings = []; used = set()
+        # 阶段 A：全表扫描精确匹配，精确列优先占位
         for ix, val in enumerate(headers):
-            field, ambiguous = gb_header_match(val, spec['headers'])
+            text = norm_header(val)
+            if not text:
+                continue
+            field = exact_alias.get(text)
+            if field is None:
+                continue
+            if field in found:
+                warnings.append('表头「%s」与「%s」都对应「%s」，已保留前一列，本列忽略。'
+                                % (val, headers[found[field]], labels.get(field, field)))
+                continue
+            found[field] = ix; used.add(ix)
+
+        # 阶段 B：只对仍缺失的字段做模糊匹配；衍生列与额外 MAC 列忽略并警告
+        remaining = {f: a for f, a in headers_map.items() if f not in found}
+        for ix, val in enumerate(headers):
+            if ix in used:
+                continue
+            text = norm_header(val)
+            if not text:
+                continue
+            # 无论是否还有缺失字段，衍生列与额外 MAC 列都要忽略并给出可见警告。
+            if 'mac' in text and text not in mac_exact:
+                warnings.append('已忽略额外的 MAC 列「%s」（仅精确的 BMC_MAC 列会用于映射）。' % val)
+                continue
+            # 列文本里含有已精确命中字段的长别名 → 视为衍生列（如 NODE_SN_KP）
+            derived = False
+            for field, aliases in headers_map.items():
+                if field not in found:
+                    continue
+                if any(len(norm_header(a)) >= 4 and norm_header(a) in text for a in aliases):
+                    derived = True; break
+            if derived:
+                warnings.append('已忽略衍生列「%s」（相关字段已有精确列）。' % val)
+                continue
+            if not remaining:
+                continue
+            field, ambiguous = gb_header_match(val, remaining)
             if ambiguous:
-                issues.append('表头「%s」可能对应多个字段：' % val
-                              + '、'.join(spec['labels'].get(x, x) for x in ambiguous))
+                warnings.append('表头「%s」可能对应多个字段，已忽略：' % val
+                                + '、'.join(labels.get(x, x) for x in ambiguous))
+                continue
             if field:
-                if field in found:
-                    issues.append('表头「%s」与前面的列冲突：都对应「%s」'
-                                  % (val, spec['labels'].get(field, field)))
-                else:
-                    found[field] = ix
+                found[field] = ix; used.add(ix)
+                remaining = {f: a for f, a in headers_map.items() if f not in found}
+
         score = len(found) + (8 if all(k in found for k in spec['required']) else 0)
         if score > best_score:
-            best_rn, best_score, best_map, best_issues = rn, score, found, issues
-    return best_rn, best_map, best_issues
+            best_rn, best_score, best_map = rn, score, found
+            best_issues, best_warnings = issues, warnings
+    return best_rn, best_map, best_issues, best_warnings
 
 
 def gb_context(kind):
@@ -666,7 +717,8 @@ def parse_component_row(get, rn, ctx):
             'kp_name': kp_name, 'bmc_mac': bmc_mac}, issues
 
 
-def build_gb_preview(batch, header_row, mapping, token, kind, header_issues=None):
+def build_gb_preview(batch, header_row, mapping, token, kind,
+                     header_issues=None, header_warnings=None):
     """自动识别与手动改映射共用同一套校验；纯空列自动隐藏，映射用原始列索引。"""
     spec = GB_SPECS[kind]
     nonempty = batch['nonempty']; candidates = batch['header_candidates']
@@ -676,7 +728,8 @@ def build_gb_preview(batch, header_row, mapping, token, kind, header_issues=None
     width = max([len(columns)] + [len(row) for _, row in nonempty])
     columns += [''] * (width - len(columns))
     active = active_column_indexes(columns, nonempty, header_row)
-    errors = list(dict.fromkeys(header_issues or [])); warnings = []
+    errors = list(dict.fromkeys(header_issues or []))
+    warnings = list(dict.fromkeys(header_warnings or []))
     missing = [f for f in spec['required'] if f not in mapping]
     if missing:
         errors.append('缺少必需字段：'
@@ -746,7 +799,7 @@ def build_gb_preview(batch, header_row, mapping, token, kind, header_issues=None
 def parse_gb_import(data, user_id, kind):
     matrix, nonempty = item_matrix(data)
     candidates = header_candidates(nonempty)
-    header_row, mapping, issues = auto_detect_gb_header(candidates, GB_SPECS[kind])
+    header_row, mapping, issues, header_warnings = auto_detect_gb_header(candidates, GB_SPECS[kind])
     token = secrets.token_urlsafe(24)
     batch = {'user_id': user_id, 'expires': int(time.time()) + 1200,
              'matrix': matrix, 'nonempty': nonempty,
@@ -756,7 +809,7 @@ def parse_gb_import(data, user_id, kind):
     if kind == 'components':
         batch['serials'] = []
     result = build_gb_preview(batch, header_row, mapping, token, kind,
-                              header_issues=issues)
+                              header_issues=issues, header_warnings=header_warnings)
     prune_import_tokens()
     (SERVER_IMPORT_TOKENS if kind == 'servers'
      else SERVER_COMPONENT_IMPORT_TOKENS)[token] = batch
@@ -1373,7 +1426,7 @@ class Handler(BaseHTTPRequestHandler):
             if not u:return
             try:d=self.body()
             except:return self.send(400,{'error':'无法读取导入确认请求'})
-            token=str(d.get('token',''));batch=SERVER_COMPONENT_IMPORT_TOKENS.pop(token,None)
+            token=str(d.get('token',''));batch=SERVER_COMPONENT_IMPORT_TOKENS.get(token)
             if not batch or batch['user_id']!=u['id'] or batch['expires']<int(time.time()):return self.send(400,{'error':'部件清单预览已失效，请重新上传文件'})
             edited=d.get('rows')
             if edited is not None:
@@ -1400,6 +1453,8 @@ class Handler(BaseHTTPRequestHandler):
                     c.executemany('INSERT INTO server_components(server_sn,node_sn,node_u,kp_name,bmc_mac) VALUES(?,?,?,?,?)',[(x['server_sn'],x['node_sn'],x['node_u'],x['kp_name'],x['bmc_mac']) for x in batch['rows']])
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'部件数据存在重复 NODE_SN 或 NODE，整批未导入；请重新预览'})
+            # 校验与事务都成功后才消费令牌；失败时用同一令牌修正数据可直接重试。
+            SERVER_COMPONENT_IMPORT_TOKENS.pop(token,None)
             return self.send(200,{'ok':True,'imported':len(batch['rows']),'servers':len(batch['serials'])})
         if p=='/api/import-servers-preview':
             u=self.require('can_edit')
@@ -1415,7 +1470,7 @@ class Handler(BaseHTTPRequestHandler):
             if not u:return
             try:d=self.body()
             except:return self.send(400,{'error':'无法读取导入确认请求'})
-            token=str(d.get('token',''));batch=SERVER_IMPORT_TOKENS.pop(token,None)
+            token=str(d.get('token',''));batch=SERVER_IMPORT_TOKENS.get(token)
             if not batch or batch['user_id']!=u['id'] or batch['expires']<int(time.time()):return self.send(400,{'error':'预览已失效，请重新上传文件'})
             edited=d.get('rows')
             if edited is not None:
@@ -1437,6 +1492,7 @@ class Handler(BaseHTTPRequestHandler):
                         c.execute('INSERT INTO servers(room,rack,sn) VALUES(?,?,?)',(server['room'],server['rack'],server['sn']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入期间发现重复 SN，整批未写入；请重新预览文件'})
+            SERVER_IMPORT_TOKENS.pop(token,None)
             return self.send(200,{'ok':True,'imported':len(batch['rows'])})
 
         if p in ('/api/import-servers-remap','/api/import-server-components-remap'):
