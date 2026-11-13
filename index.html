@@ -588,9 +588,9 @@ function renderImportPage(){
   const start=window.importPage*IMPORT_PAGE_SIZE;
   const page=rows.slice(start,start+IMPORT_PAGE_SIZE);
   const lockModel=(d.mode||'create')==='update';
-  const html=page.map((x,i)=>`<tr><td>${previewCell(x.category,i,'category')}</td><td>${previewCell(x.model,i,'model','text',lockModel)}</td><td>${previewCell(x.description,i,'description')}</td><td>${previewCell(x.planned,i,'planned','number')}</td><td>${previewCell(x.supplier,i,'supplier')}</td><td>${previewCell(x.location,i,'location')}</td><td>${previewCell(x.owner,i,'owner')}</td><td>${previewCell(x.notes,i,'notes')}</td></tr>`).join('');
+  const html=page.map((x,i)=>`<tr><td>${previewCell(x.category,i,'category')}</td><td>${previewCell(x.model,i,'model','text',lockModel)}</td><td>${previewCell(x.description,i,'description')}</td><td>${previewCell(x.planned,i,'planned','number')}</td><td>${previewCell(x.supplier,i,'supplier')}</td><td>${previewCell(x.location,i,'location')}</td><td>${previewCell(x.owner,i,'owner')}</td><td>${previewCell(x.notes,i,'notes')}</td><td><button type="button" class="secondary" onclick="pvDelete('items',null,${i})">删除</button></td></tr>`).join('');
   const body=$('#importPreviewBody');
-  if(body)body.innerHTML=html||'<tr><td colspan="8" class="hint">没有可预览的数据行</td></tr>';
+  if(body)body.innerHTML=html||'<tr><td colspan="9" class="hint">没有可预览的数据行；可点「恢复已删除的行」</td></tr>';
   const total=Math.max(1,Math.ceil(rows.length/IMPORT_PAGE_SIZE));
   const info=$('#importPageInfo');
   if(info)info.textContent=`第 ${rows.length?start+1:0}–${Math.min(start+IMPORT_PAGE_SIZE,rows.length)} 条 / 共 ${rows.length} 条 · 第 ${window.importPage+1}/${total} 页`;
@@ -609,7 +609,7 @@ function switchImportPage(delta){
 function renderImportPreview(d){
   window.currentImportData=d;
   window.itemImportPreviewRows=d.preview_rows||d.samples||[];
-  window.importPage=0;
+  window.importPage=0;window.pvDeleted_items=[];
   const mode=d.mode||'create';
   const idx=d.mapping_index||{},reverse={};
   Object.entries(idx).forEach(([f,i])=>{reverse[i]=f});
@@ -638,11 +638,13 @@ function renderImportPreview(d){
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
     <div class="import-section"><b>③ 预览数据（可直接修改）</b>
       <div class="import-pager"><button type="button" class="secondary" id="importPrevPage" onclick="switchImportPage(-1)">上一页</button><span id="importPageInfo"></span><button type="button" class="secondary" id="importNextPage" onclick="switchImportPage(1)">下一页</button></div>
-      <div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th></tr></thead><tbody id="importPreviewBody"></tbody></table></div></div>
-    ${d.token?`<div class="import-section"><button type="button" id="confirmImport">${verb} ${d.rows} 条</button></div>`:''}
+      <div class="import-pager"><button type="button" class="secondary" id="itemDeletedRestore" onclick="pvRestore('items',null)">恢复已删除的行</button><span id="itemDeletedInfo" class="hint"></span></div>
+      <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
+      <div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="importPreviewBody"></tbody></table></div></div>
+    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="confirmImport">${verb} ${d.rows} 条</button></div>`:''}
   </div>`;
-  renderImportPage();
-  if(d.token)$('#confirmImport').onclick=()=>confirmImport(d.token);
+  renderImportPage();pvUpdateBar('items',null);
+  if(d.token||d.edit_token)$('#confirmImport').onclick=()=>confirmImport(d.token||d.edit_token);
 }
 
 async function applyImportMapping(){
@@ -667,13 +669,15 @@ async function applyImportMapping(){
 async function confirmImport(token){
   collectVisiblePreview();
   const d=window.currentImportData||{};
+  const rows=window.itemImportPreviewRows||[];
+  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
   const verb=d.mode==='update'?'按预览更新这些物料的台账字段（型号与库存数量不变）':'将预览中的物料写入物料台账';
   if(!await uiConfirm(`确认${verb}？本次不会写入库存变动明细。`))return;
   try{
     const r=await api('/api/import-items',{method:'POST',body:JSON.stringify({token,rows:window.itemImportPreviewRows})});
     $('#importMsg').textContent=d.mode==='update'?`已更新 ${r.imported} 条物料台账。`:`已导入 ${r.imported} 条物料，库存变动明细未改动。`;
     $('#importPreview').innerHTML='';$('#importForm').reset();
-    window.currentImportData=null;window.itemImportPreviewRows=[];
+    window.currentImportData=null;window.itemImportPreviewRows=[];window.pvDeleted_items=[];
     await loadItems();filterItems();
   }catch(e){$('#importMsg').textContent=e.message}
 }
@@ -915,6 +919,7 @@ function collectMovementVisible(){
       row[f]=(f==='qty')?(el.value.trim()===''?'':(Number.isFinite(Number(el.value))?Number(el.value):el.value)):el.value.trim();
     });
   });
+  pvUpdateBar('movements',null);
 }
 
 function renderMovementPage(){
@@ -928,7 +933,8 @@ function renderMovementPage(){
     <td>${mvCell(x.qty,i,'qty','number')}</td>
     <td>${mvCell(x.location,i,'location')}</td>
     <td>${mvCell(x.owner,i,'owner')}</td>
-    <td>${mvCell(x.notes,i,'notes')}</td></tr>`).join('')||'<tr><td colspan="8" class="hint">没有可预览的数据行</td></tr>';
+    <td>${mvCell(x.notes,i,'notes')}</td>
+    <td><button type="button" class="secondary" data-act="mv-del" data-idx="${i}">删除</button></td></tr>`).join('')||'<tr><td colspan="9" class="hint">没有可预览的数据行；可点「恢复已删除的行」</td></tr>';
   const total=Math.max(1,Math.ceil(rows.length/MOVEMENT_PAGE_SIZE));
   $('#movementPageInfo').textContent=`第 ${rows.length?start+1:0}–${Math.min(start+MOVEMENT_PAGE_SIZE,rows.length)} 条 / 共 ${rows.length} 条 · 第 ${window.mvImportPage+1}/${total} 页`;
   $('#mvPrevPage').disabled=window.mvImportPage<=0;
@@ -944,7 +950,8 @@ function switchMovementPage(delta){
 
 function renderMovementImportPreview(d){
   window.mvImportData=d;window.movementImportPreviewRows=d.preview_rows||d.samples||[];
-  window.mvImportPage=0;window.movementImportToken=d.token||null;
+  window.mvImportPage=0;window.movementImportToken=d.token||d.edit_token||null;
+  window.pvDeleted_movements=[];
   const idx=d.mapping_index||{},reverse={};
   Object.entries(idx).forEach(([f,i])=>{reverse[i]=f});
   const headerOpts=(d.header_candidates||[]).map(x=>`<option value="${x.row}"${x.row===d.header_row?' selected':''}>第 ${x.row} 行：${esc((Array.isArray(x.cells)?x.cells:[]).filter(v=>String(v).trim()).slice(0,6).join(' | ')||'（空行）')}</option>`).join('');
@@ -958,7 +965,7 @@ function renderMovementImportPreview(d){
   const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(movementFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' ');
   const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-  $('#movementImportMsg').textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'校验通过，可确认导入。':'请调整下面的表头行或字段对应后重新校验。'}`;
+  $('#movementImportMsg').textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'可确认导入；如表格未提供数量，请在下方补填或删除不需要的行。':'请调整下面的表头行或字段对应后重新校验。'}`;
   $('#movementImportPreview').innerHTML=`<div class="card">
     <div class="import-section"><b>① 表头所在行</b>
       <div class="map-row"><select id="movementHeaderRow">${headerOpts||`<option value="${d.header_row}">第 ${d.header_row} 行</option>`}</select><button type="button" class="secondary" data-act="mv-apply">应用修改并重新校验</button></div>
@@ -971,8 +978,10 @@ function renderMovementImportPreview(d){
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
     <div class="import-section"><b>③ 预览数据（日期、数量、位置、负责人、备注可修改）</b>
       <div class="import-pager"><button type="button" class="secondary" id="mvPrevPage" data-act="mv-prev">上一页</button><span id="movementPageInfo"></span><button type="button" class="secondary" id="mvNextPage" data-act="mv-next">下一页</button></div>
-      <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
-    ${d.token?`<div class="import-section"><button type="button" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button></div>`:''}
+      <div class="import-pager"><button type="button" class="secondary" id="mvDeletedRestore" data-act="mv-restore">恢复已删除的行</button><span id="mvDeletedInfo" class="hint"></span><span id="mvQtyInfo" class="hint"></span></div>
+      <p class="hint">不需要的行可以逐行删除；删错了点「恢复已删除的行」。确认时只会写入当前预览中的行。</p>
+      <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
+    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button></div>`:''}
   </div>`;
   $('#movementImportPreview').onclick=e=>{
     const b=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
@@ -981,9 +990,11 @@ function renderMovementImportPreview(d){
     if(act==='mv-apply')return applyMovementMapping();
     if(act==='mv-prev')return switchMovementPage(-1);
     if(act==='mv-next')return switchMovementPage(1);
+    if(act==='mv-del')return pvDelete('movements',null,b.dataset.idx);
+    if(act==='mv-restore')return pvRestore('movements',null);
     if(act==='mv-confirm')return confirmMovementImport(window.movementImportToken);
   };
-  renderMovementPage();
+  renderMovementPage();pvUpdateBar('movements',null);
 }
 
 async function applyMovementMapping(){
@@ -1007,13 +1018,17 @@ async function applyMovementMapping(){
 
 async function confirmMovementImport(token){
   collectMovementVisible();
-  if(!token){uiToast('请先修正预览中的错误');return}
-  if(!await uiConfirm('确认将预览中的记录作为「入库」写入库存变动明细？物料台账不变。'))return;
+  if(!token){uiToast('预览已失效，请重新上传 Excel 文件');return}
+  const rows=window.movementImportPreviewRows||[];
+  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
+  const bad=rows.findIndex(r=>!(Number(r.qty)>0));
+  if(bad>=0){const msg=`第 ${bad+1} 行入库数量必须大于 0，请在预览中补填，或删除该行后再导入。`;uiToast(msg);$('#movementImportMsg').textContent=msg;return}
+  if(!await uiConfirm(`确认将预览中的 ${rows.length} 条记录作为「入库」写入库存变动明细？已删除的行不会写入。`))return;
   try{
     const d=await api('/api/import-movements',{method:'POST',body:JSON.stringify({token,rows:window.movementImportPreviewRows})});
     $('#movementImportMsg').textContent=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。`;
     $('#movementImportPreview').innerHTML='';$('#movementImportForm').reset();
-    window.mvImportData=null;window.movementImportPreviewRows=[];window.movementImportToken=null;
+    window.mvImportData=null;window.movementImportPreviewRows=[];window.movementImportToken=null;window.pvDeleted_movements=[];
     await loadItems();await loadMoves();
   }catch(e){$('#movementImportMsg').textContent=e.message}
 }
@@ -1074,7 +1089,7 @@ function renderGbPreview(kind,d){
   const cfg=GB_IMPORT_CONFIG[kind];
   window[cfg.stateKey]=d;
   window[cfg.dataKey]=d.preview_rows||d.samples||[];
-  window[cfg.pageKey]=0;
+  window[cfg.pageKey]=0;window['pvDeleted_'+kind]=[];
   const idx=d.mapping_index||{},reverse={};
   Object.entries(idx).forEach(([f,i])=>{reverse[i]=f});
   const headerOpts=(d.header_candidates||[]).map(x=>`<option value="${x.row}"${x.row===d.header_row?' selected':''}>第 ${x.row} 行：${esc((Array.isArray(x.cells)?x.cells:[]).filter(v=>String(v).trim()).slice(0,6).join(' | ')||'（空行）')}</option>`).join('');
@@ -1101,20 +1116,22 @@ function renderGbPreview(kind,d){
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
     <div class="import-section"><b>③ 预览数据（可直接修改）</b>
       <div class="import-pager"><button type="button" class="secondary" id="${cfg.prevId}" onclick="switchGbPage('${kind}',-1)">上一页</button><span id="${cfg.pageInfoId}"></span><button type="button" class="secondary" id="${cfg.nextId}" onclick="switchGbPage('${kind}',1)">下一页</button></div>
-      <div class="tablewrap preview-table"><table><thead><tr>${cfg.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody id="${cfg.bodyId}"></tbody></table></div></div>
-    ${d.token?`<div class="import-section"><button type="button" id="${cfg.confirmId}">确认导入 ${d.rows} 条</button></div>`:''}
+      <div class="import-pager"><button type="button" class="secondary" id="${kind}DeletedRestore" onclick="pvRestore('gb','${kind}')">恢复已删除的行</button><span id="${kind}DeletedInfo" class="hint"></span></div>
+      <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
+      <div class="tablewrap preview-table"><table><thead><tr>${cfg.headers.map(h=>`<th>${esc(h)}</th>`).join('')}<th>操作</th></tr></thead><tbody id="${cfg.bodyId}"></tbody></table></div></div>
+    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="${cfg.confirmId}">确认导入 ${d.rows} 条</button></div>`:''}
   </div>`;
-  renderGbPage(kind);
-  if(d.token)$('#'+cfg.confirmId).onclick=()=>confirmGbImport(kind,d.token);
+  renderGbPage(kind);pvUpdateBar('gb',kind);
+  if(d.token||d.edit_token)$('#'+cfg.confirmId).onclick=()=>confirmGbImport(kind,d.token||d.edit_token);
 }
 
 function renderGbPage(kind){
   const cfg=GB_IMPORT_CONFIG[kind];
   const rows=window[cfg.dataKey]||[];
   const start=(window[cfg.pageKey]||0)*IMPORT_PAGE_SIZE;
-  const html=rows.slice(start,start+IMPORT_PAGE_SIZE).map((x,i)=>`<tr>${cfg.tableFields.map(f=>`<td>${previewCell(x[f],i,f,cfg.numberFields.includes(f)?'number':'text')}</td>`).join('')}</tr>`).join('');
+  const html=rows.slice(start,start+IMPORT_PAGE_SIZE).map((x,i)=>`<tr>${cfg.tableFields.map(f=>`<td>${previewCell(x[f],i,f,cfg.numberFields.includes(f)?'number':'text')}</td>`).join('')}<td><button type="button" class="secondary" onclick="pvDelete('gb','${kind}',${i})">删除</button></td></tr>`).join('');
   const body=$('#'+cfg.bodyId);
-  if(body)body.innerHTML=html||`<tr><td colspan="${cfg.tableFields.length}" class="hint">没有可预览的数据行</td></tr>`;
+  if(body)body.innerHTML=html||`<tr><td colspan="${cfg.tableFields.length+1}" class="hint">没有可预览的数据行；可点「恢复已删除的行」</td></tr>`;
   const total=Math.max(1,Math.ceil(rows.length/IMPORT_PAGE_SIZE));
   const info=$('#'+cfg.pageInfoId);
   if(info)info.textContent=`第 ${rows.length?start+1:0}–${Math.min(start+IMPORT_PAGE_SIZE,rows.length)} 条 / 共 ${rows.length} 条 · 第 ${(window[cfg.pageKey]||0)+1}/${total} 页`;
@@ -1166,12 +1183,13 @@ async function applyGbMapping(kind){
 async function confirmGbImport(kind,token){
   collectGbVisible(kind);
   const cfg=GB_IMPORT_CONFIG[kind],rows=window[cfg.dataKey]||[];
+  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
   if(!await uiConfirm(cfg.confirmLabel(rows.length)))return;
   try{
     const r=await api(cfg.confirmUrl,{method:'POST',body:JSON.stringify({token,rows})});
     $('#'+cfg.msgId).textContent=cfg.success(r);
     $('#'+cfg.boxId).innerHTML='';
-    $('#'+cfg.formId).reset();
+    $('#'+cfg.formId).reset();window['pvDeleted_'+kind]=[];
     await cfg.after();
   }catch(e){$('#'+cfg.msgId).textContent=e.message}
 }
@@ -1186,6 +1204,58 @@ async function deleteServerSpare(id){
     uiToast('已清理归档备件','ok');
     await loadSpares();
   }catch(e){uiToast(e.message)}
+}
+
+
+
+/* ===== Excel 预览：删除 / 恢复行（四条导入共用） ===== */
+function pvStateKey(which,kind){return 'pvDeleted_'+(which==='gb'?kind:which)}
+function pvCfg(which,kind){
+  if(which==='items')return {
+    data:'itemImportPreviewRows',page:'importPage',size:IMPORT_PAGE_SIZE,
+    collect:()=>collectVisiblePreview(),render:()=>renderImportPage(),
+    info:'#itemDeletedInfo',restore:'#itemDeletedRestore',btn:'#confirmImport',
+    label:n=>'确认导入 '+n+' 条'};
+  if(which==='movements')return {
+    data:'movementImportPreviewRows',page:'mvImportPage',size:MOVEMENT_PAGE_SIZE,
+    collect:()=>collectMovementVisible(),render:()=>renderMovementPage(),
+    info:'#mvDeletedInfo',restore:'#mvDeletedRestore',btn:'#movementConfirmBtn',
+    label:n=>'确认导入 '+n+' 条入库明细'};
+  const g=GB_IMPORT_CONFIG[kind];
+  return {data:g.dataKey,page:g.pageKey,size:IMPORT_PAGE_SIZE,
+    collect:()=>collectGbVisible(kind),render:()=>renderGbPage(kind),
+    info:'#'+kind+'DeletedInfo',restore:'#'+kind+'DeletedRestore',btn:'#'+g.confirmId,
+    label:n=>'确认导入 '+n+' 条'};
+}
+function pvDelete(which,kind,i){
+  const c=pvCfg(which,kind);c.collect();
+  const rows=window[c.data]||[],start=(window[c.page]||0)*c.size,at=start+Number(i);
+  if(!(at>=0&&at<rows.length))return;
+  const key=pvStateKey(which,kind);
+  (window[key]||(window[key]=[])).push({pos:at,row:rows[at]});
+  rows.splice(at,1);
+  const total=Math.max(1,Math.ceil(rows.length/c.size));
+  if((window[c.page]||0)>total-1)window[c.page]=total-1;
+  c.render();pvUpdateBar(which,kind);
+}
+function pvRestore(which,kind){
+  const c=pvCfg(which,kind);c.collect();
+  const key=pvStateKey(which,kind),list=(window[key]||[]).slice();
+  const rows=window[c.data]||(window[c.data]=[]);
+  list.sort((a,b)=>a.pos-b.pos).forEach(x=>rows.splice(Math.min(x.pos,rows.length),0,x.row));
+  window[key]=[];c.render();pvUpdateBar(which,kind);
+}
+function pvUpdateBar(which,kind){
+  const c=pvCfg(which,kind),rows=window[c.data]||[];
+  const n=(window[pvStateKey(which,kind)]||[]).length;
+  const info=$(c.info);if(info)info.textContent=n?`已删除 ${n} 行（确认导入时不会写入）`:'';
+  const rst=$(c.restore);if(rst)rst.disabled=n===0;
+  const btn=$(c.btn);if(btn){btn.textContent=c.label(rows.length);btn.disabled=rows.length===0}
+  if(which==='movements'){
+    const el=$('#mvQtyInfo');
+    if(el){const miss=rows.filter(r=>!(Number(r.qty)>0)).length;
+      el.textContent=rows.length?(miss?`还有 ${miss} 行未填写入库数量（需大于 0），请在下方补填或删除不需要的行。`:'数量已填写完整，可以确认导入。'):'';}
+  }
 }
 
 </script></body></html>

@@ -263,9 +263,12 @@ def build_item_preview(batch, header_row, mapping, token, header_issues=None):
     category_missing=(mode=='create' and 'category' not in mapping
                       and default_category not in ('光模块','线缆'))
     if category_missing:missing.append('category')
-    if missing:
-        errors.append('缺少必需字段：'+ '、'.join(FIELD_LABELS.get(x,x) for x in dict.fromkeys(missing))
+    hard_missing=[f for f in missing if f!='planned']
+    if hard_missing:
+        errors.append('缺少必需字段：'+ '、'.join(FIELD_LABELS.get(x,x) for x in dict.fromkeys(hard_missing))
                       +'。可在下方「字段对应」中手动指定对应列，或改选表头所在行。')
+    if 'planned' in missing:
+        warnings.append('表格未提供「计划数量」列，预览中暂填 0；请在下方逐行填写需要的数量，或删除不需要的行后确认导入。')
     ignored_calc=[str(v) for v in columns if str(v).strip()
                   and any(norm_header(w) in norm_header(v) for w in IGNORED_CALC_HEADERS)]
     ignored_calc+= [str(columns[i]) for f,i in mapping.items()
@@ -426,6 +429,30 @@ def auto_detect_movement_header(candidates):
         if score>best_score:best_rn,best_score,best_map,best_issues=rn,score,found,issues
     return best_rn,best_map,best_issues
 
+def select_edited_rows(edited, original):
+    """预览允许删除行：edited 为 1..len(original) 条。
+
+    带 row（Excel 原始行号）时按身份对齐 base，禁止伪造或重复；
+    不带 row 的旧客户端按位置取前 N 条，保持兼容。
+    """
+    if not isinstance(edited, list):
+        raise ValueError('编辑后的数据格式不正确，请重新上传文件')
+    if not edited:
+        raise ValueError('预览中没有可导入的数据；可点「恢复已删除的行」，或重新上传文件')
+    if len(edited) > len(original):
+        raise ValueError('编辑后的行数超过预览行数，请重新上传文件')
+    if any(not isinstance(r, dict) for r in edited):
+        raise ValueError('编辑后的数据格式不正确，请重新上传文件')
+    keys = [r.get('row') for r in edited]
+    if all(k is not None for k in keys):
+        orig_rows = [r.get('row') for r in original]
+        if len(set(keys)) != len(keys) or any(k not in orig_rows for k in keys):
+            raise ValueError('编辑后的行与预览不一致，请重新上传文件')
+        by_row = {r.get('row'): r for r in original}
+        return [by_row[k] for k in keys]
+    return original[:len(edited)]
+
+
 def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
     """自动识别与手动改映射共用这一套校验；必需字段只有 型号 + 入库数量。"""
     nonempty=batch['nonempty']; candidates=batch['header_candidates']
@@ -437,9 +464,13 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
     active=active_column_indexes(columns,nonempty,header_row)
     errors=list(dict.fromkeys(header_issues or [])); warnings=[]
     missing=[f for f in ('model','qty') if f not in mapping]
-    if missing:
-        errors.append('缺少必需字段：'+ '、'.join(MOVEMENT_LABELS.get(x,x) for x in missing)
+    qty_missing='qty' in missing
+    hard_missing=[f for f in missing if f!='qty']
+    if hard_missing:
+        errors.append('缺少必需字段：'+ '、'.join(MOVEMENT_LABELS.get(x,x) for x in hard_missing)
                       +'。请在下方「字段对应」中手动指定对应列，或改选表头所在行。')
+    if qty_missing:
+        warnings.append('表格未提供「入库数量」列，预览中暂填 0；请在下方逐行填写大于 0 的整数，或删除不需要的行后确认导入。')
     mapped_cols={i for f,i in mapping.items() if f in MOVEMENT_FIELDS}
     unknown=[str(v) for i,v in enumerate(columns) if i not in mapped_cols and str(v).strip()]
     if unknown:warnings.append('未识别的列将忽略：'+ '、'.join(unknown[:12])+('…' if len(unknown)>12 else ''))
@@ -451,7 +482,7 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
             warnings.append(f'数量列「{qcol}」含「计划」字样，请确认它确实是入库数量。')
     with db() as c:
         items={norm_model(r['model']):dict(r) for r in c.execute('SELECT id,category,model,description FROM items')}
-    rows=[]; used_today=False
+    rows=[]; used_today=False; need_qty=0
     for rn,row in [(rn,row) for rn,row in nonempty if rn>header_row]:
         if not any(str(v).strip() for v in row):continue
         def get(field):
@@ -459,8 +490,11 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
             return str(row[ix] if 0<=ix<len(row) else '').strip()
         issues=[]; model=get('model'); key=norm_model(model)
         if not model:issues.append('型号为空')
-        try:qty=parse_qty(get('qty').replace(',',''),'入库数量')
-        except ValueError as e:qty=0;issues.append(str(e))
+        if qty_missing:
+            qty=0; need_qty+=1
+        else:
+            try:qty=parse_qty(get('qty').replace(',',''),'入库数量')
+            except ValueError as e:qty=0;issues.append(str(e))
         base=items.get(key)
         if model and not base:issues.append('台账中找不到该型号（型号需与台账一致）')
         category=str(base['category']) if base else (get('category') or default_category or '光模块')
@@ -491,6 +525,8 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
         if issues:errors.append(f'第 {rn} 行：'+'；'.join(issues))
         rows.append(record)
     if used_today:warnings.append('缺失日期的记录将使用导入当天日期。')
+    if qty_missing and need_qty:
+        warnings.append(f'有 {need_qty} 行尚未填写入库数量；请在预览表格中补填大于 0 的整数，或删除不需要的行。确认时会再完整校验一次。')
     if len(errors)>100:errors=errors[:100]+[f'另有 {len(errors)-100} 条错误未显示']
     if not rows:errors.append('表头之后没有可导入的入库记录')
     if len(rows)>IMPORT_ROW_LIMIT:errors.append('数据行数超过 10,000 行限制')
@@ -502,6 +538,7 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
             'mapping':{f:(columns[i] if 0<=i<len(columns) else str(i)) for f,i in mapping.items()},
             'mapping_index':dict(mapping),'rows':len(rows),'errors':errors,'warnings':warnings,
             'samples':rows[:8],'preview_rows':rows,
+            'qty_missing':qty_missing,'need_qty':need_qty,
             'token':token if can_import else None,'edit_token':token,'can_import':can_import}
 
 def parse_movement_import(data,user_id,default_category):
@@ -1431,8 +1468,8 @@ class Handler(BaseHTTPRequestHandler):
             edited=d.get('rows')
             if edited is not None:
                 try:
-                    if not isinstance(edited,list) or len(edited)!=len(batch['rows']):
-                        raise ValueError('编辑后的行数与预览不一致，请重新上传')
+                    if not isinstance(edited,list) or not edited or len(edited)>len(batch['rows']):
+                        raise ValueError('预览中没有可导入的数据，或行数超过预览行数；请重新上传')
                     ctx=gb_context('components');clean=[]
                     for i,raw in enumerate(edited,1):
                         vals={'server_sn':str(raw.get('server_sn','')).strip(),
@@ -1475,8 +1512,8 @@ class Handler(BaseHTTPRequestHandler):
             edited=d.get('rows')
             if edited is not None:
                 try:
-                    if not isinstance(edited,list) or len(edited)!=len(batch['rows']):
-                        raise ValueError('编辑后的行数与预览不一致，请重新上传')
+                    if not isinstance(edited,list) or not edited or len(edited)>len(batch['rows']):
+                        raise ValueError('预览中没有可导入的数据，或行数超过预览行数；请重新上传')
                     ctx=gb_context('servers');clean=[]
                     for i,raw in enumerate(edited,1):
                         vals={f:str(raw.get(f,'')).strip() for f in SERVER_FIELDS}
@@ -1655,22 +1692,36 @@ class Handler(BaseHTTPRequestHandler):
             token=str(d.get('token',''));batch=MOVEMENT_IMPORT_TOKENS.get(token)
             if not batch or batch['user_id']!=u['id'] or batch['expires']<int(time.time()):return self.send(400,{'error':'入库预览已失效，请重新上传文件'})
             edited=d.get('rows')
-            if edited is not None:
-                if not isinstance(edited,list) or len(edited)!=len(batch['rows']):return self.send(400,{'error':'编辑后的行数与预览不一致，请重新上传'})
-                with db() as c:
-                    items={norm_model(r['model']):dict(r) for r in c.execute('SELECT id,category,model,description FROM items')}
-                rows=[];seen=[]
-                try:
-                    for i,raw in enumerate(edited,1):
-                        model=str(raw.get('model','')).strip();key=norm_model(model);category=str(raw.get('category','')).strip();moved_at, _=movement_date(str(raw.get('moved_at','')).strip())
-                        try:qty=parse_qty(raw.get('qty',0))
-                        except ValueError as e:raise ValueError(f'第 {i} 行{e}')
-                        if not model or key not in items:raise ValueError(f'第 {i} 行型号必须匹配现有物料台账')
-                        if qty<=0:raise ValueError(f'第 {i} 行入库数量必须大于 0')
-                        if category!=items[key]['category']:raise ValueError(f'第 {i} 行类别与型号台账不一致')
-                        seen.append({'item_id':items[key]['id'],'category':category,'model':model,'description':items[key]['description'],'kind':'入库','qty':qty,'moved_at':moved_at,'location':str(raw.get('location','')).strip(),'owner':str(raw.get('owner','')).strip(),'notes':str(raw.get('notes','')).strip()})
-                except (ValueError,TypeError) as e:return self.send(400,{'error':str(e) or '编辑内容格式错误'})
-                batch['rows']=seen
+            if edited is None:
+                source=batch['rows']
+            else:
+                try:select_edited_rows(edited,batch['rows'])  # 校验删行合法性（身份/数量）
+                except ValueError as e:return self.send(400,{'error':str(e)})
+                source=edited  # 用户手填的数量以提交内容为准
+            # 无论是否提交编辑后的行，确认时都做一次完整复校（防止 0 数量落库）
+            with db() as c:
+                items={norm_model(r['model']):dict(r) for r in c.execute('SELECT id,category,model,description FROM items')}
+            clean=[]
+            try:
+                for i,raw in enumerate(source,1):
+                    model=str(raw.get('model','')).strip();key=norm_model(model)
+                    category=str(raw.get('category','')).strip()
+                    moved_at,_=movement_date(str(raw.get('moved_at','')).strip())
+                    qv=raw.get('qty',0)
+                    if qv is None or qv=='' or qv==0:
+                        raise ValueError(f'第 {i} 行入库数量必须大于 0，请在预览中补填或删除该行')
+                    try:qty=parse_qty(qv)
+                    except ValueError as e:raise ValueError(f'第 {i} 行{e}')
+                    if not model or key not in items:raise ValueError(f'第 {i} 行型号必须匹配现有物料台账')
+                    if qty<=0:raise ValueError(f'第 {i} 行入库数量必须大于 0，请在预览中补填或删除该行')
+                    if category!=items[key]['category']:raise ValueError(f'第 {i} 行类别与型号台账不一致')
+                    clean.append({'item_id':items[key]['id'],'category':category,'model':model,
+                                  'description':items[key]['description'],'kind':'入库','qty':qty,
+                                  'moved_at':moved_at,'location':str(raw.get('location','')).strip(),
+                                  'owner':str(raw.get('owner','')).strip(),'notes':str(raw.get('notes','')).strip()})
+            except (ValueError,TypeError) as e:
+                return self.send(400,{'error':str(e) or '编辑内容格式错误'})
+            batch['rows']=clean
             try:
                 with db() as c:
                     for item in batch['rows']:
@@ -1692,11 +1743,12 @@ class Handler(BaseHTTPRequestHandler):
             mode=batch.get('mode','create')
             edited=d.get('rows')
             if edited is not None:
-                if not isinstance(edited,list) or len(edited)!=len(batch['rows']):return self.send(400,{'error':'编辑后的行数与预览不一致，请重新上传'})
+                try:selected=select_edited_rows(edited,batch['rows'])
+                except ValueError as e:return self.send(400,{'error':str(e)})
                 seen=set();clean=[]
                 try:
                     for i,raw in enumerate(edited,1):
-                        base=batch['rows'][i-1]
+                        base=selected[i-1]
                         # 更新模式下型号是匹配键，不允许在预览里被改掉
                         model=(str(base.get('model','')) if mode=='update'
                                else str(raw.get('model','')).strip())
