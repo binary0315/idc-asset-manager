@@ -929,15 +929,30 @@ def restore_snapshot(c,row,user_id):
 class Handler(BaseHTTPRequestHandler):
     server_version='IDCInventory/1.0'
     def log_message(self,fmt,*args): print('%s - %s' % (self.address_string(),fmt%args))
+    def handle_one_request(self):
+        try:super().handle_one_request()
+        except (BrokenPipeError,ConnectionResetError):self.close_connection=True
+        except Exception as e:
+            print('[unhandled] %s: %s'%(type(e).__name__,e))
+            try:self.send(500,{'error':'服务器内部错误，请稍后重试'})
+            except Exception:self.close_connection=True
+    def do_PUT(self): self.send(405,{'error':'不支持的请求方法；新增用 POST，修改用 PATCH，删除用 DELETE'})
+    def send_error(self,code,message=None,explain=None):
+        self.close_connection=True
+        try:self.send(code,{'error':message or '请求无法处理'})
+        except Exception:pass
     def send(self,status,obj=None,headers=None,content_type='application/json; charset=utf-8'):
         body=obj if isinstance(obj,bytes) else json_bytes(obj or {})
         self.send_response(status); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Cache-Control','no-store')
         for k,v in (headers or {}).items(): self.send_header(k,v)
         self.end_headers(); self.wfile.write(body)
     def body(self):
-        n=int(self.headers.get('Content-Length','0'))
+        n=int(self.headers.get('Content-Length','0') or 0)
         if n>1_000_000: raise ValueError('请求内容过大')
-        return json.loads(self.rfile.read(n) or b'{}')
+        try: d=json.loads(self.rfile.read(n) or b'{}')
+        except ValueError:raise ValueError('请求内容不是有效的 JSON')
+        if not isinstance(d,dict):raise ValueError('请求内容必须是 JSON 对象')
+        return d
     def auth(self,csrf=False):
         token=''
         for part in self.headers.get('Cookie','').split(';'):
@@ -988,6 +1003,18 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/status':
             with db() as c: setup=c.execute('SELECT count(*) FROM users').fetchone()[0]==0
             return self.send(200,{'setup_required':setup})
+        if p=='/api/config':
+            # 开放化第一步：把目前写死在后端/前端的业务口径集中到一个只读接口。
+            # 后续改成可配置字典时，只要本接口返回值不变，前端与导入逻辑都无需修改。
+            return self.send(200,{
+                'item_categories':['光模块','线缆'],
+                'item_fields':list(ITEM_FIELDS),'field_limits':dict(FIELD_LIMITS),
+                'material_spare_statuses':list(MATERIAL_SPARE_STATUSES),
+                'server_spare_statuses':list(SERVER_SPARE_STATUSES),
+                'rack_u_slots':46,'qty_max':MAX_QTY,
+                'import':{'header_scan_rows':HEADER_SCAN_ROWS,
+                          'row_limit':IMPORT_ROW_LIMIT,'page_size':50},
+                'configurable':False})
         if p=='/api/me':
             u=self.auth()
             if not u: return self.send(401,{'error':'请先登录'})
