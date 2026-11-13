@@ -1,6 +1,229 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IDC资产管理</title><style>
-:root{--navy:#17365d;--blue:#2563a6;--bg:#f3f6fa;--line:#dce4ed;--muted:#66758a}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:14px/1.5 "Microsoft YaHei",system-ui,sans-serif;color:#1e293b}button,input,select,textarea{font:inherit}button{border:0;border-radius:7px;padding:9px 14px;background:var(--blue);color:#fff;cursor:pointer}button.secondary{background:#e8eef5;color:#23364d}button.danger{background:#b42318}.top{background:var(--navy);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}.top h1{font-size:18px;margin:0}.user{display:flex;gap:12px;align-items:center}.wrap{max-width:1440px;margin:24px auto;padding:0 20px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px #102b4608}.login{max-width:440px;margin:10vh auto}.login h2{margin-top:0}.hidden{display:none!important}.tabs{display:flex;gap:8px;margin-bottom:16px}.tabs button{background:#e8eef5;color:#2d4056}.tabs button.active{background:var(--navy);color:#fff}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.field{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1}.field label{font-size:12px;color:var(--muted)}input,select,textarea{border:1px solid #cbd5e1;border-radius:7px;padding:9px;background:#fff;min-width:0}.field textarea{min-height:38px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#edf3f8;color:#31465c;position:sticky;top:0;white-space:nowrap}.tablewrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:8px}.tablewrap td input,.tablewrap td select{width:100%;min-width:100px;padding:6px}.tablewrap td:nth-child(8) input{min-width:160px}.module-label{font-size:12px;color:#d7e4f2;margin-left:auto;margin-right:8px}h2{font-size:17px;margin:0 0 14px}.hint{font-size:12px;color:var(--muted);margin:8px 0 0}.status{color:#b42318;min-height:20px;margin:8px 0}.badge{background:#e8eef5;border-radius:99px;padding:3px 8px;font-size:12px}.check{display:flex;gap:7px;align-items:center;margin:5px 0}.check input{min-width:auto}.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.toolbar input{max-width:320px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.server-stats{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:10px;margin:14px 0 20px}.server-stat{display:flex;align-items:baseline;gap:8px;padding:12px 14px;background:#f2f6fa;border:1px solid var(--line);border-radius:9px}.server-stat b{font-size:22px;color:var(--navy)}.server-stat span,.room-heading span{font-size:12px;color:var(--muted)}.server-room{margin-top:18px}.room-heading{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}.room-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}.room-card{width:100%;min-height:230px;aspect-ratio:1.75/1;display:flex;flex-direction:column;gap:12px;padding:14px;text-align:left;background:#fff;color:#1e293b;border:1px solid var(--line);border-radius:13px;box-shadow:0 2px 8px #102b4608}.room-card:hover{border-color:#6f98bc;box-shadow:0 7px 20px #17365d18;transform:translateY(-2px)}.room-schematic{position:relative;display:flex;flex:1;min-height:130px;flex-direction:column;justify-content:center;align-items:center;gap:12px;border:2px solid #7897b3;border-radius:10px;background:linear-gradient(0deg,#edf3f8 1px,transparent 1px),linear-gradient(90deg,#edf3f8 1px,transparent 1px),#f8fafc;background-size:18px 18px}.room-schematic-label{position:absolute;left:10px;top:7px;font-size:11px;font-weight:700;color:#526b83}.room-schematic-racks{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:78%}.room-schematic-racks i{width:10px;height:28px;border:1px solid #4e9a76;border-radius:3px;background:#d9eee3;box-shadow:inset 0 3px #64a987}.room-schematic-door{position:absolute;right:10px;bottom:7px;font-size:10px;color:#8190a2}.room-card-info{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}.room-card-info strong{font-size:15px}.room-card-info span{font-size:12px;color:var(--muted)}.room-navigation{display:flex;align-items:center;gap:14px;margin:8px 0 16px}.room-navigation h3{margin:0;font-size:17px}.room-navigation .hint{margin:2px 0 0}.room-heading h3{margin:0;font-size:16px}.server-floor{padding:18px;background:#f7f9fc;border:1px solid var(--line);border-radius:12px;overflow:auto}.rack-row{display:flex;align-items:center;gap:12px;min-width:810px}.rack-row+.rack-row{margin-top:10px}.rack-row.row-gap{margin-top:30px;padding-top:22px;border-top:1px dashed #b8c7d8}.rack-label{width:38px;flex:none;font-weight:700;color:#52657b}.rack-cells{display:grid;grid-template-columns:repeat(10,minmax(62px,1fr));grid-template-rows:86px;grid-auto-flow:column;grid-auto-columns:minmax(62px,1fr);gap:8px;flex:1}.rack-tile{height:86px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:5px;background:#fff;border:1px solid #ccd7e3;border-radius:8px;color:#5f7084}.rack-tile.occupied{background:#e8f4ee;border-color:#75b798;color:#164b35;box-shadow:inset 0 3px 0 #32936b}.rack-tile.occupied:hover{transform:translateY(-2px);box-shadow:0 5px 12px #17365d20,inset 0 3px 0 #32936b}.rack-name{font-weight:700;font-size:14px}.rack-unit{font-size:12px}.rack-server{font-size:10px;opacity:.78}.rack-empty{background:#f3f6f9;border-style:dashed;color:#a5b1bf}.rack-dialog{width:min(920px,calc(100vw - 28px));max-height:92vh;border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 18px 60px #0b1c2c40;overflow:hidden}.rack-dialog::backdrop{background:#13263c70}.rack-dialog h2{margin:0}.dialog-close{float:right}.sn-card{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px;margin-top:10px;border:1px solid var(--line);border-radius:9px;background:#f7f9fc}.sn-card span{color:var(--muted);font-size:12px}.sn-card strong{font-family:ui-monospace,Consolas,monospace}.server-actions{display:flex;gap:6px;flex-wrap:wrap}.server-actions button{padding:6px 10px}.serverActionHeader{min-width:130px}.import-mapping{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.import-errors{color:#b42318}.component-device{border:1px solid var(--line);border-radius:11px;padding:14px;margin-top:14px}.component-device-title{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:10px}.component-device-title div{display:flex;flex-direction:column;gap:3px}.component-device-title div span,.component-device-title>span{font-size:12px;color:var(--muted)}.component-device-title strong{font-family:ui-monospace,Consolas,monospace}.u-stack{max-height:65vh;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff}.u-slot{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:stretch;min-height:42px;border-bottom:1px solid #e6ebf1}.u-slot:last-child{border-bottom:0}.u-number{display:flex;align-items:center;justify-content:center;background:#eef3f7;color:#52657a;font-size:12px;font-weight:700;border-right:1px solid var(--line)}.u-slot.filled{background:#f2f8f4}.u-slot.empty{background:#f8fafc}.u-component{display:grid;grid-template-columns:minmax(125px,1fr) minmax(180px,1.4fr) minmax(180px,1.2fr);gap:10px;align-items:center;padding:5px 10px;font-size:12px}.u-component strong{color:#244c3a}.u-component b{color:var(--muted);font-size:10px;margin-right:4px}.u-component code{font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}.u-empty-label{align-self:center;padding:0 10px;color:#9ba8b7;font-size:12px}.u-edit{margin:4px 8px;padding:5px 8px;white-space:nowrap}.u-op{grid-column:1/-1;color:#60758a}.u-slot{grid-template-columns:58px minmax(0,1fr) auto}.component-edit-dialog{overflow:auto}.component-edit-dialog form{display:grid;gap:12px}.component-empty{padding:20px;background:#f7f9fc;border-radius:8px;color:var(--muted)}@media(max-width:800px){.u-component{grid-template-columns:1fr;gap:2px}.u-slot{min-height:66px}.server-stats{grid-template-columns:repeat(2,minmax(100px,1fr))}.grid{grid-template-columns:1fr}.module-label{display:none}.top{padding:12px}.wrap{padding:0 10px;margin:12px auto}}
-.u-main{min-width:0;display:grid;align-content:center}.u-history{grid-column:1/-1;min-width:0;margin:0 10px 8px;padding:7px 10px;border:1px solid #dce5ed;border-radius:7px;background:#fff}.u-history summary{cursor:pointer;color:#365b78;font-size:12px;font-weight:600}.u-history ol{display:grid;gap:6px;margin:8px 0 2px;padding-left:22px}.u-history li{padding:6px 8px;border-left:2px solid #9bb8ce;background:#f6f9fc;font-size:12px}.u-history li span{display:block;overflow-wrap:anywhere}.u-history li small{display:block;margin-top:3px;color:#66758a}.u-edit{align-self:center}#spareMaterialStats{grid-template-columns:repeat(5,minmax(100px,1fr))}@media(max-width:800px){#spareMaterialStats{grid-template-columns:repeat(2,minmax(100px,1fr))}}#rackDialogBody{max-height:72vh;overflow:auto}.rack-equipment{margin:12px 0 22px}.preview-table{max-height:55vh;margin:10px 0}.preview-edit{min-width:90px;width:100%;padding:6px}.preview-edit[data-field="model"]{min-width:150px}.preview-edit[data-field="notes"]{min-width:180px}
+
+/* ==========================================================================
+   IDC 资产管理 — 界面系统
+   设计原则取自 taste-skill 2.5.1 中适用于「数据密集型内部工具」的部分：
+   单一设计系统 / 等边距 / 明确字阶 / 反 AI 味（无紫、无装饰渐变、无满屏大圆角）
+   / 克制的 hover 反馈 / 焦点可见 / 移动端不溢出 / reduced-motion。
+   营销落地页专用的「整屏 hero、大照片、滚动入场、shader」不适用于本系统，未采用。
+   ========================================================================== */
+
+:root{
+  --bg:#f4f6f7;
+  --surface:#fff;
+  --surface-2:#f7f9fa;
+  --ink:#16242e;
+  --ink-2:#33454f;
+  --muted:#5f7179;
+  --line:#dde4e7;
+  --line-strong:#b9c6cc;
+  --brand:#0e5963;
+  --brand-deep:#0a434c;
+  --brand-soft:#e6f1f1;
+  --ok:#1d6b50;
+  --ok-soft:#e8f3ed;
+  --warn:#9a5a10;
+  --danger:#a42a2c;
+  --danger-soft:#fbeeee;
+  --header:#10232c;
+  --r:4px;
+  --r-lg:6px;
+  --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.55 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+
+/* ---------- 字阶：一套，三级 ---------- */
+h1,h2,h3{margin:0;line-height:1.35;letter-spacing:.01em}
+h1{font-size:15px;font-weight:650}
+h2{
+  font-size:14px;font-weight:650;letter-spacing:.02em;
+  border-left:3px solid var(--brand);padding-left:10px;
+}
+h3{font-size:14px;font-weight:650}
+code,.u-number,.rack-unit,.rack-server,.sn-card strong,.component-device-title strong{
+  font-family:var(--mono);font-variant-numeric:tabular-nums;
+}
+
+/* ---------- 顶栏：一条深色品牌带，几何机柜标记（纯 CSS，无外部资源） ---------- */
+.top{
+  background:var(--header);color:#eef4f5;
+  padding:0 24px;min-height:56px;
+  display:flex;align-items:center;gap:16px;
+  border-bottom:2px solid var(--brand);
+}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-mark{
+  position:relative;display:inline-block;flex:none;
+  width:22px;height:22px;border:2px solid #7fb9bd;border-radius:2px;
+}
+.brand-mark::before{
+  content:"";position:absolute;left:3px;right:3px;top:3px;height:2px;
+  background:#c8e4e4;box-shadow:0 5px 0 #c8e4e4,0 10px 0 #c8e4e4;
+}
+.top h1{white-space:nowrap}
+.module-label{
+  margin-left:auto;margin-right:8px;
+  font-size:11px;letter-spacing:.13em;color:#9fb8bc;
+  text-transform:uppercase;white-space:nowrap;
+}
+.user{display:flex;gap:12px;align-items:center;color:#c9dadd;font-size:12px;white-space:nowrap}
+.top .user button.secondary{
+  background:transparent;border:1px solid #45616a;color:#dce9ea;
+  padding:6px 12px;
+}
+.top .user button.secondary:hover{background:#1d3a44;border-color:#6d949a}
+
+/* ---------- 布局：等边距 ---------- */
+.wrap{max-width:1440px;margin:0 auto;padding:24px 24px 56px}
+.pane{min-width:0}
+.hidden{display:none!important}
+
+/* ---------- 标签栏：文字 tab，不是一排胶囊按钮 ---------- */
+.tabs{
+  display:flex;gap:0;margin:0 0 20px;
+  border-bottom:1px solid var(--line-strong);
+  overflow-x:auto;scrollbar-width:thin;
+}
+.tabs button{
+  background:none;color:var(--muted);border:0;border-radius:0;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  padding:10px 16px;white-space:nowrap;font-weight:500;font-size:13px;
+}
+.tabs button:hover{color:var(--ink);background:var(--surface-2)}
+.tabs button.active{
+  background:none;color:var(--brand);border-bottom-color:var(--brand);font-weight:650;
+}
+
+/* ---------- 卡片：一种样式，细线分层，不靠阴影堆叠 ---------- */
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:20px;margin-bottom:16px;
+}
+.card>.hint:first-of-type{margin-top:10px}
+.login{max-width:420px;margin:9vh auto;padding:28px}
+.login h2{font-size:17px;margin-bottom:6px;padding-left:0;border-left:0}
+.login form{margin-top:20px}
+.login .field+.field{margin-top:14px}
+.login button{width:100%;margin-top:18px}
+#importPreview .card,#recycleDetail .card{box-shadow:none;margin:0}
+#recycleDetail .card{margin-top:12px}
+
+/* ---------- 表单：统一控件高度与焦点环 ---------- */
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1}
+.field label{
+  font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);
+}
+input,select,textarea{
+  border:1px solid var(--line-strong);border-radius:var(--r);
+  padding:8px 10px;background:var(--surface);min-width:0;width:100%;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+input:hover,select:hover,textarea:hover{border-color:#8fa3ab}
+input:focus,select:focus,textarea:focus{
+  outline:0;border-color:var(--brand);box-shadow:0 0 0 3px #0e596322;
+}
+input::placeholder,textarea::placeholder{color:#9aa8b0}
+input:disabled,select:disabled,input[readonly]{
+  background:var(--surface-2);color:var(--muted);cursor:default;
+}
+textarea{min-height:38px;resize:vertical}
+.field textarea{min-height:38px}
+.check{display:flex;gap:7px;align-items:center;margin:5px 0;font-size:13px}
+.check input{width:auto;min-width:auto;accent-color:var(--brand)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* ---------- 按钮：一对主次 + 一个危险态 ---------- */
+button{
+  border:1px solid var(--brand);border-radius:var(--r);
+  padding:8px 15px;background:var(--brand);color:#fff;
+  font-size:13px;font-weight:600;line-height:1.4;
+  transition:background-color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .12s ease;
+}
+button:hover{background:var(--brand-deep);border-color:var(--brand-deep);transform:translateY(-1px)}
+button:active{transform:translateY(0);box-shadow:none}
+button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+button.secondary{
+  background:var(--surface);color:var(--ink-2);border-color:var(--line-strong);
+}
+button.secondary:hover{background:var(--surface-2);border-color:#8fa3ab;color:var(--ink)}
+button.danger{background:var(--danger);border-color:var(--danger)}
+button.danger:hover{background:#872023;border-color:#872023}
+
+/* ---------- 提示 / 状态 / 徽标 ---------- */
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.65}
+.status{color:var(--danger);min-height:20px;margin:8px 0;font-size:12px;line-height:1.6}
+.badge{
+  display:inline-block;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--r);padding:2px 7px;font-size:11px;color:var(--ink-2);
+  font-family:var(--mono);
+}
+.import-errors{color:var(--danger)}
+.import-errors li,.import-errors ul{margin:4px 0}
+.edit-error,.server-edit-error{display:block;color:var(--danger);font-size:12px;min-height:16px;margin-top:4px}
+.muted-stat{opacity:.6}
+.cat-edit{width:100%;min-width:80px;padding:5px}
+
+/* ---------- 工具栏 ---------- */
+.toolbar{
+  display:flex;justify-content:space-between;gap:12px;align-items:center;
+  flex-wrap:wrap;margin-bottom:14px;
+}
+.toolbar h2{flex:none}
+.toolbar>div{min-width:0}
+.toolbar input{max-width:320px}
+.toolbar select{max-width:220px}
+.toolbar .hint{margin-top:4px}
+
+/* ---------- 表格 ---------- */
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{
+  padding:9px 11px;border-bottom:1px solid var(--line);
+  text-align:left;vertical-align:top;
+}
+th{
+  background:var(--surface-2);color:var(--ink-2);
+  font-size:12px;font-weight:650;letter-spacing:.02em;
+  position:sticky;top:0;z-index:1;white-space:nowrap;
+  border-bottom:1px solid var(--line-strong);
+}
+tbody tr:hover{background:#f6fafb}
+.tablewrap{
+  overflow:auto;max-height:65vh;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+}
+.tablewrap td input,.tablewrap td select{width:100%;min-width:100px;padding:6px}
+.tablewrap td:nth-child(8) input{min-width:160px}
+#itemsBody input,#itemsBody select{width:100%;min-width:88px;padding:5px}
+#recycleDetail table th{width:110px;background:var(--surface)}
+.row-actions{white-space:nowrap}
+.row-actions button{padding:5px 9px;margin-right:4px}
+.serverActionHeader{min-width:130px}
+
+/* ---------- 统计块 ---------- */
+.server-stats{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:10px;margin:14px 0 20px}
+#spareMaterialStats{grid-template-columns:repeat(5,minmax(100px,1fr))}
+.server-stat{
+  display:flex;align-items:baseline;gap:8px;padding:12px 14px;
+  background:var(--surface-2);border:1px solid var(--line);
+  border-left:3px solid var(--brand);border-radius:var(--r);
+}
+.server-stat b{font-size:22px;color:var(--brand-deep);font-family:var(--mono);font-weight:650}
+.server-stat span,.room-heading span{font-size:12px;color:var(--muted)}
+
+/* ---------- 导入预览 / 字段映射 ---------- */
+.import-mapping{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .import-mapping-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px;margin:10px 0}
 .map-col{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 .map-col select{width:100%;padding:7px}
@@ -8,31 +231,194 @@
 .map-row select{min-width:300px;max-width:100%}
 .import-pager{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:12px;color:var(--muted)}
 .import-pager button{padding:5px 10px}
-.import-section{margin-top:16px}
-#importPreview .card{box-shadow:none;margin:0}
+.import-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 #importPreview .import-mapping{margin:8px 0}
-.row-actions{white-space:nowrap}
-.row-actions button{padding:5px 9px;margin-right:4px}
-#itemsBody input,#itemsBody select{width:100%;min-width:88px;padding:5px}
-.preview-edit[readonly]{background:#eef2f6;color:#66758a}
-.import-errors li,.import-errors ul{margin:4px 0}
+.preview-table{max-height:55vh;margin:10px 0}
+.preview-edit{min-width:90px;width:100%;padding:6px}
+.preview-edit[data-field="model"]{min-width:150px}
+.preview-edit[data-field="notes"]{min-width:180px}
+.preview-edit[readonly]{background:var(--surface-2);color:var(--muted)}
 
-.ui-modal-backdrop{position:fixed;inset:0;background:#0b1c2c70;display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
-.ui-modal{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;max-width:540px;width:100%;box-shadow:0 18px 60px #0b1c2c40}
-.ui-modal h3{margin:0 0 10px;font-size:16px;color:var(--navy)}
-.ui-modal-msg{white-space:pre-wrap;font-size:13px;color:#334155;margin:0 0 12px;line-height:1.65}
-.ui-modal input{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:7px}
-.ui-modal-error{color:#b42318;font-size:12px;min-height:18px;margin:6px 0}
+/* ---------- 机房总览 / 机柜示意 ---------- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.server-room{margin-top:18px}
+.room-heading{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.room-heading h3{margin:0;font-size:16px}
+.room-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+.room-card{
+  width:100%;min-height:230px;aspect-ratio:1.75/1;
+  display:flex;flex-direction:column;gap:12px;padding:14px;text-align:left;
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  transition:border-color .15s ease,transform .15s ease;
+}
+.room-card:hover{border-color:var(--brand);transform:translateY(-2px);background:var(--surface)}
+.room-schematic{
+  position:relative;display:flex;flex:1;min-height:130px;
+  flex-direction:column;justify-content:center;align-items:center;gap:12px;
+  border:1px solid var(--line-strong);border-radius:var(--r);
+  background:
+    linear-gradient(0deg,#e9eff0 1px,transparent 1px),
+    linear-gradient(90deg,#e9eff0 1px,transparent 1px),var(--surface-2);
+  background-size:18px 18px;
+}
+.room-schematic-label{position:absolute;left:10px;top:7px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em}
+.room-schematic-racks{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:78%}
+.room-schematic-racks i{
+  width:10px;height:28px;border:1px solid var(--ok);border-radius:2px;
+  background:var(--ok-soft);box-shadow:inset 0 3px 0 #3f8f6c;
+}
+.room-schematic-door{position:absolute;right:10px;bottom:7px;font-size:10px;color:var(--muted)}
+.room-card-info{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.room-card-info strong{font-size:15px}
+.room-card-info span{font-size:12px;color:var(--muted)}
+.room-navigation{display:flex;align-items:center;gap:14px;margin:8px 0 16px}
+.room-navigation h3{margin:0;font-size:17px}
+.room-navigation .hint{margin:2px 0 0}
+.server-floor{padding:18px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-lg);overflow:auto}
+.rack-equipment{margin:12px 0 22px}
+.rack-row{display:flex;align-items:center;gap:12px;min-width:810px}
+.rack-row+.rack-row{margin-top:10px}
+.rack-row.row-gap{margin-top:30px;padding-top:22px;border-top:1px dashed var(--line-strong)}
+.rack-label{width:38px;flex:none;font-weight:700;color:var(--ink-2);font-family:var(--mono)}
+.rack-cells{
+  display:grid;grid-template-columns:repeat(10,minmax(62px,1fr));grid-template-rows:86px;
+  grid-auto-flow:column;grid-auto-columns:minmax(62px,1fr);gap:8px;flex:1;
+}
+.rack-tile{
+  height:86px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;
+  padding:5px;background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:var(--r);color:var(--muted);
+  transition:border-color .15s ease,transform .15s ease;
+}
+.rack-tile.occupied{
+  background:var(--ok-soft);border-color:#79ac94;color:#174d38;
+  box-shadow:inset 3px 0 0 var(--ok);
+}
+.rack-tile.occupied:hover{transform:translateY(-2px);border-color:var(--ok)}
+.rack-tile.rack-empty,.rack-empty{background:var(--surface-2);border-style:dashed;color:#9aa8b0}
+.rack-name{font-weight:700;font-size:14px}
+.server-actions{display:flex;gap:6px;flex-wrap:wrap}
+.server-actions button{padding:6px 10px}
+.sn-card{
+  display:flex;justify-content:space-between;gap:16px;align-items:center;
+  padding:14px;margin-top:10px;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--surface-2);
+}
+.sn-card span{color:var(--muted);font-size:12px}
+
+/* ---------- 46U 部件栈 ---------- */
+.rack-dialog{
+  width:min(920px,calc(100vw - 28px));max-height:92vh;
+  border:1px solid var(--line-strong);border-radius:var(--r-lg);padding:22px;
+  box-shadow:0 18px 60px #0b1c2c40;overflow:hidden;background:var(--surface);color:var(--ink);
+}
+.rack-dialog::backdrop{background:#13263c70}
+.rack-dialog h2{margin:0}
+.dialog-close{float:right}
+#rackDialogBody{max-height:72vh;overflow:auto}
+.component-device{border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-top:14px}
+.component-device-title{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:10px}
+.component-device-title div{display:flex;flex-direction:column;gap:3px}
+.component-device-title div span,.component-device-title>span{font-size:12px;color:var(--muted)}
+.u-stack{max-height:65vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.u-slot{
+  display:grid;grid-template-columns:58px minmax(0,1fr) auto;align-items:stretch;
+  min-height:42px;border-bottom:1px solid #e6ebf1;
+}
+.u-slot:last-child{border-bottom:0}
+.u-number{
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:700;
+  border-right:1px solid var(--line);
+}
+.u-slot.filled{background:#f4faf6;box-shadow:inset 3px 0 0 var(--ok)}
+.u-slot.empty{background:var(--surface)}
+.u-component{
+  display:grid;grid-template-columns:minmax(125px,1fr) minmax(180px,1.4fr) minmax(180px,1.2fr);
+  gap:10px;align-items:center;padding:5px 10px;font-size:12px;
+}
+.u-main{min-width:0;display:grid;align-content:center}
+.u-component strong{color:#1c5340}
+.u-component b{color:var(--muted);font-size:10px;margin-right:4px;font-weight:600}
+.u-component code{overflow-wrap:anywhere}
+.u-op{grid-column:1/-1;color:var(--muted)}
+.u-empty-label{align-self:center;padding:0 10px;color:#9ba8b7;font-size:12px}
+.u-edit{align-self:center;margin:4px 8px;padding:5px 8px;white-space:nowrap}
+.u-history{
+  grid-column:1/-1;min-width:0;margin:0 10px 8px;padding:7px 10px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+}
+.u-history summary{cursor:pointer;color:var(--brand);font-size:12px;font-weight:600}
+.u-history ol{display:grid;gap:6px;margin:8px 0 2px;padding-left:22px}
+.u-history li{padding:6px 8px;border-left:2px solid var(--brand);background:var(--surface-2);font-size:12px}
+.u-history li span{display:block;overflow-wrap:anywhere}
+.u-history li small{display:block;margin-top:3px;color:var(--muted)}
+.component-edit-dialog{overflow:auto}
+.component-edit-dialog form{display:grid;gap:12px}
+.component-empty{padding:20px;background:var(--surface-2);border-radius:var(--r);color:var(--muted)}
+
+/* ---------- 页面内模态 / 浮层提示：统一圆角与阴影 ---------- */
+.ui-modal-backdrop{
+  position:fixed;inset:0;background:#0b1c2c70;
+  display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;
+}
+.ui-modal{
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-lg);
+  padding:20px;max-width:540px;width:100%;box-shadow:0 18px 60px #0b1c2c40;
+}
+.ui-modal h3{margin:0 0 10px;font-size:16px;color:var(--brand-deep)}
+.ui-modal-msg{white-space:pre-wrap;font-size:13px;color:var(--ink-2);margin:0 0 12px;line-height:1.65}
+.ui-modal input{width:100%;padding:9px;border:1px solid var(--line-strong);border-radius:var(--r)}
+.ui-modal-error{color:var(--danger);font-size:12px;min-height:18px;margin:6px 0}
 .ui-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 .ui-modal-actions button{padding:8px 16px}
-.ui-toast{position:fixed;right:20px;bottom:20px;z-index:10000;max-width:440px;padding:12px 16px;border-radius:9px;color:#fff;font-size:13px;line-height:1.5;white-space:pre-wrap;box-shadow:0 8px 24px #0b1c2c40}
-.ui-toast.err{background:#b42318}
-.ui-toast.ok{background:#18794e}
+.ui-toast{
+  position:fixed;right:20px;bottom:20px;z-index:10000;max-width:440px;
+  padding:12px 16px;border-radius:var(--r);color:#fff;font-size:13px;line-height:1.5;
+  white-space:pre-wrap;box-shadow:0 8px 24px #0b1c2c40;
+}
+.ui-toast.err{background:var(--danger)}
+.ui-toast.ok{background:var(--ok)}
 
-#recycleDetail .card{box-shadow:none;margin-top:12px}
-#recycleDetail table th{width:110px;background:#fff}
+/* ---------- 响应式：320 / 390 / 768 / 1024 都不横向溢出 ---------- */
+@media(max-width:1024px){
+  .wrap{padding:20px 16px 48px}
+  .top{padding:0 16px}
+}
+@media(max-width:800px){
+  .u-component{grid-template-columns:1fr;gap:2px}
+  .u-slot{min-height:66px}
+  .server-stats,#spareMaterialStats{grid-template-columns:repeat(2,minmax(100px,1fr))}
+  .grid{grid-template-columns:1fr}
+  .module-label{display:none}
+  .top{padding:10px 12px;flex-wrap:wrap;gap:8px}
+  .wrap{padding:14px 12px 40px;margin:0}
+  .card{padding:16px}
+  .tabs{margin-bottom:14px}
+  .tabs button{padding:10px 12px}
+}
+@media(max-width:480px){
+  button{min-height:40px}
+  .row>.field{min-width:100%}
+  .toolbar>input,.toolbar input,.toolbar select{max-width:100%;width:100%}
+  .card{padding:14px}
+  .tablewrap{max-height:70vh}
+  .rack-dialog{padding:14px}
+  .ui-modal-actions{flex-wrap:wrap}
+}
+@media(max-width:360px){
+  .wrap{padding:12px 8px 32px}
+  .card{padding:12px}
+  .server-stats,#spareMaterialStats{grid-template-columns:1fr}
+  .tabs button{padding:9px 10px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
 </style></head><body><main id="login" class="card login hidden"><h2 id="authTitle">登录 IDC资产管理</h2><div id="setupHint" class="hint hidden">首次使用请创建管理员。管理员密码至少 12 位，请妥善保管。</div><form id="authForm"><div class="field"><label>管理员/协管员账号</label><input name="username" required minlength="3" autocomplete="username"></div><div class="field" style="margin-top:12px"><label>密码</label><input name="password" required type="password" minlength="12" autocomplete="new-password"></div><button id="authSubmit" style="margin-top:14px">登录</button></form><div id="authMsg" class="status"></div></main>
-<div id="app" class="hidden"><header class="top"><h1>IDC资产管理</h1><span class="module-label">物料与 GB300 服务器</span><div class="user"><span id="who"></span><button class="secondary" onclick="logout()">退出</button></div></header><div class="wrap"><div class="tabs"><button class="active" data-tab="items">物料台账</button><button data-tab="movements">库存变动明细</button><button data-tab="servers">GB300机柜视图</button><button data-tab="spares">备件管理</button><button id="usersTab" data-tab="users" class="hidden">账号权限</button><button id="recycleTab" data-tab="recycle" class="hidden">回收站 / 操作日志</button></div>
+<div id="app" class="hidden"><header class="top"><div class="brand"><span class="brand-mark" aria-hidden="true"></span><h1>IDC资产管理</h1></div><span class="module-label">物料与 GB300 服务器</span><div class="user"><span id="who"></span><button class="secondary" onclick="logout()">退出</button></div></header><div class="wrap"><div class="tabs"><button class="active" data-tab="items">物料台账</button><button data-tab="movements">库存变动明细</button><button data-tab="servers">GB300机柜视图</button><button data-tab="spares">备件管理</button><button id="usersTab" data-tab="users" class="hidden">账号权限</button><button id="recycleTab" data-tab="recycle" class="hidden">回收站 / 操作日志</button></div>
 <section id="items" class="pane"><div id="importCard" class="card hidden"><h2>Excel 批量导入物料</h2><p class="hint">上传 .xlsx 文件。系统自动扫描前 30 行猜表头；表头行或字段对不上时，可在预览区手动改「表头所在行」和每一列对应的字段，重新校验后再导入。导入不会写入库存变动明细。</p><form id="importForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><div class="field"><label>导入模式</label><select name="import_mode"><option value="create">新增物料（型号必须不存在）</option><option value="update">按型号更新台账字段</option></select></div><div class="field"><label>整批默认类别（表内没有类别列时使用）</label><select name="default_category"><option value="">请先在表内提供类别，或选择默认类别</option><option value="optical">光模块</option><option value="cable">线缆</option></select></div><button>识别表头并预览</button></form><div id="importMsg" class="status"></div><div id="importPreview"></div></div><div id="itemFormCard" class="card hidden"><h2>新增物料</h2><form id="itemForm" class="row"><div class="field"><label>类别 *</label><select name="category"><option>光模块</option><option>线缆</option></select></div><div class="field"><label>型号 *</label><input name="model" required></div><div class="field" style="flex:2"><label>名称/规格 *</label><input name="description" required></div><div class="field"><label>供应商/品牌</label><input name="supplier"></div><div class="field" style="max-width:110px"><label>计划数量</label><input name="planned" type="number" min="0" value="0"></div><div class="field"><label>存放位置</label><input name="location"></div><div class="field"><label>负责人</label><input name="owner"></div><div class="field" style="flex:2"><label>备注</label><input name="notes"></div><button>保存物料</button></form><div class="status" id="itemMsg"></div><p class="hint">当前只管理光模块与线缆；型号是唯一标识，需保持唯一，库存数量来自库存变动明细。</p></div><div id="emptyLedgerHint" class="card hidden"><b>台账当前为空</b><p class="hint">被删除的物料连同库存变动明细、坏件 SN 一起保存在「回收站 / 操作日志」中，可以查看删除前快照并原样还原。</p><button type="button" onclick="document.querySelector('[data-tab=recycle]').click()">打开回收站</button></div><div class="card"><div class="toolbar"><h2>物料台账</h2><button class="secondary" onclick="location.href='/api/export/items.xlsx'">导出 Excel</button><select id="categoryFilter"><option value="">全部类别</option><option>光模块</option><option>线缆</option></select><input id="itemSearch" placeholder="搜索型号、规格、供应商、位置"></div><div class="tablewrap"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>供应商/品牌</th><th>计划</th><th>累计入库</th><th>领用/安装</th><th>报废</th><th>可用库存</th><th>未到</th><th>位置</th><th>负责人</th><th>备注</th><th id="itemActionHeader">操作</th></tr></thead><tbody id="itemsBody"></tbody></table></div></div></section>
 <section id="movements" class="pane hidden"><div id="movementImportCard" class="card hidden"><h2>Excel 批量导入入库明细</h2><p class="hint">仅导入入库。必需字段只有「型号」和「入库数量」两个，类别自动按型号从台账带出。表头行或列名对不上时，可在预览区手动改「表头所在行」和每列对应的字段，重新校验后再导入；数量列不必叫「入库数量」。选填列：日期、类别、业务类型、位置/去向、负责人、备注。不会新增或修改台账记录。</p><form id="movementImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="movementImportMsg" class="status"></div><div id="movementImportPreview"></div></div><div id="moveFormCard" class="card hidden"><h2>登记库存变动</h2><form id="moveForm" class="row"><div class="field"><label>日期 *</label><input name="moved_at" type="date" required></div><div class="field"><label>业务类型 *</label><select name="kind"><option>入库</option><option>领用/安装</option><option>报废</option></select></div><div class="field" style="flex:2"><label>类别 *</label><select name="category" id="moveCategory" required><option>光模块</option><option>线缆</option></select></div><div class="field" style="flex:2"><label>型号 *</label><select name="model" id="moveModel" required></select></div><div class="field"><label>数量 *</label><input name="qty" type="number" min="1" step="1" required></div><div class="field"><label id="locationLabel">入库位置/去向（选填）</label><input name="location"></div><div class="field"><label>负责人（选填）</label><input name="owner"></div><div class="field" style="flex:2"><label>备注（选填）</label><input name="notes"></div><button>提交明细</button></form><div class="status" id="moveMsg"></div></div><div class="card"><div class="toolbar"><h2>库存变动明细（最近 1000 条）</h2><button class="secondary" onclick="location.href='/api/export/movements.xlsx'">导出 Excel</button></div><div class="tablewrap"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th id="movementActionHeader">操作</th></tr></thead><tbody id="movesBody"></tbody></table></div></div></section>
 <section id="servers" class="pane hidden"><div id="serverImportCard" class="card hidden"><h2>Excel 批量导入 GB300 服务器</h2><p class="hint">上传后可在预览里修改「表头所在行」和每一列对应的字段，列名不标准也不用回去改 Excel；系统扫描前 30 个非空行。必需字段：机房/房间、机柜位置、SN。预览数据可在线修改，重复 SN 或数据不合法时整批不会导入；未识别的列会忽略。</p><form id="serverImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverImportMsg" class="status"></div><div id="serverImportPreview"></div></div><div id="serverComponentImportCard" class="card hidden"><h2>Excel 批量导入 GB300 46U 部件</h2><p class="hint">上传后可在预览里修改「表头所在行」和每一列对应的字段，列名不标准也不用回去改 Excel；系统扫描前 30 个非空行。必需字段只有 SN、NODE_SN、NODE / U 位、KP_NAME；BMC_MAC 为可选（列可省略、值可为空）。NODE 必须是 1–46 的整数，每个 SN 预期 37 个部件；确认后会替换文件中这些 SN 的部件清单，位置仍按 SN 从服务器清单关联。</p><form id="serverComponentImportForm" class="row"><div class="field" style="flex:2"><label>部件明细 Excel（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverComponentImportMsg" class="status"></div><div id="serverComponentImportPreview"></div></div><div class="card"><div class="toolbar"><div><h2>机房设备位置</h2><p class="hint">先选择机房进入内部布局。点击机柜可查看 48U 设备位置及 GB300 部件详情。</p></div><input id="serverSearch" placeholder="搜索机房、机柜位置或 SN"></div><div id="serverStats" class="server-stats"></div><div id="serverOverview" class="room-overview"></div><div id="serverInterior" class="hidden"><div class="room-navigation"><button id="serverBackButton" class="secondary">← 返回机房总览</button><div><h3 id="serverRoomTitle"></h3><p class="hint" id="serverRoomSummary"></p></div></div><div id="serverRooms"></div></div></div><div id="serverAssetsCard" class="card hidden"><div class="toolbar"><h2 id="serverAssetsTitle">服务器清单</h2><span class="hint">按单台服务器记录维护</span></div><div class="tablewrap"><table><thead><tr><th>机房/房间</th><th>机柜位置</th><th>SN</th><th class="serverActionHeader">操作</th></tr></thead><tbody id="serverAssetsBody"></tbody></table></div></div><dialog id="rackDialog" class="rack-dialog"><form method="dialog"><button class="secondary dialog-close" aria-label="关闭">关闭</button></form><h2 id="rackDialogTitle"></h2><p class="hint" id="rackDialogSummary"></p><div id="rackDialogBody"></div></dialog><dialog id="componentEditDialog" class="rack-dialog component-edit-dialog"><form id="componentEditForm"><h2 id="componentEditTitle">编辑 / 更换部件</h2><p class="hint">U 位及 KP_NAME 固定，仅更新 NODE_SN。选择“部件更换”会把所有类型部件的旧 SN 自动登记为备件；信息修正用于纠正录入错误。系统记录登录账号，责任人填写实际操作人。</p><div class="row"><div class="field"><label>当前 U 位</label><input id="componentEditU" disabled></div><div class="field"><label>KP_NAME（固定）</label><input id="componentEditKp" disabled></div><div class="field"><label>NODE_SN *</label><input name="node_sn" required></div><div class="field"><label>操作类型 *</label><select name="action" id="componentEditAction"><option>部件更换</option><option>信息修正</option></select></div><div class="field"><label>实际操作人/责任人 *</label><input name="responsible" required></div></div><div id="componentEditMsg" class="status"></div><div class="server-actions"><button type="submit">保存</button><button type="button" class="secondary" onclick="document.getElementById('componentEditDialog').close()">取消</button></div></form></dialog></section><section id="spares" class="pane hidden">
