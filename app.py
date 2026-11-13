@@ -928,7 +928,7 @@ def login_record_fail(ip, username):
 def login_clear(ip, username):
     with LOGIN_LOCK: LOGIN_FAILS.pop((ip,username),None)
 
-def idem_begin(key, user_id, endpoint, req_hash, durable):
+def idem_begin(key, user_id, method_path, req_hash, durable):
     """返回 None 表示可以执行；返回 (status, obj) 表示应直接回放/拒绝。
     所有关键写请求都持久化首次结果：显式 UUID 跨时间严格幂等；
     裸请求用 3 秒时间桶去重，同一桶内并发/重试统一回放首次响应。"""
@@ -938,10 +938,12 @@ def idem_begin(key, user_id, endpoint, req_hash, durable):
             if now % 16 == 0:
                 c.execute('DELETE FROM idempotency WHERE created_at<?',(now-IDEMPOTENCY_TTL,))
             cur=c.execute('INSERT OR IGNORE INTO idempotency(key,user_id,endpoint,request_hash,created_at) VALUES(?,?,?,?,?)',
-                          (key,user_id,endpoint,req_hash,now))
+                          (key,user_id,method_path,req_hash,now))
             if cur.rowcount:return None
-            row=c.execute('SELECT status,response,request_hash FROM idempotency WHERE key=?',(key,)).fetchone()
+            row=c.execute('SELECT status,response,request_hash,endpoint FROM idempotency WHERE key=?',(key,)).fetchone()
             if not row:return (409, {'error':'重复请求，请稍后重试'})
+            if row['endpoint'] and row['endpoint']!=method_path:
+                return (409, {'error':'相同幂等键被用于不同的接口'})
             if row['request_hash']!=req_hash:
                 return (409, {'error':'相同幂等键对应了不同的请求内容'})
             if row['status'] is not None:
@@ -1068,7 +1070,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version='IDCInventory/1.0'
     def log_message(self,fmt,*args): print('%s - %s' % (self.address_string(),fmt%args))
     def handle_one_request(self):
-        self._idem_key=None; self._idem_durable=False; self._idem_result=None
+        self._idem_key=None; self._idem_durable=False; self._idem_result=None; self._idem_replay=False
         try:super().handle_one_request()
         except (BrokenPipeError,ConnectionResetError):self.close_connection=True
         except Exception as e:
@@ -1095,6 +1097,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('Permissions-Policy','geolocation=(), microphone=(), camera=(), payment=()')
         for k,v in (headers or {}).items(): self.send_header(k,v)
+        if getattr(self,'_idem_replay',False):
+            self.send_header('X-Idempotency-Replay','1')
         if getattr(self,'_idem_key',None) and getattr(self,'_idem_result',None) is None:
             self._idem_result=(status,body)
         self.end_headers(); self.wfile.write(body)
@@ -1115,31 +1119,35 @@ class Handler(BaseHTTPRequestHandler):
         return d
 
     def idem_guard(self,p,method):
-        """关键写接口统一幂等入口。返回 True 表示响应已发出、调用方应立即 return。"""
-        enabled=(method=='POST' and p in IDEMPOTENT_POST) or \
-                (method=='PATCH' and p.startswith(IDEMPOTENT_PATCH_PREFIX))
-        if not enabled:return False
+        """写接口统一幂等入口。返回 True 表示响应已发出、调用方应立即 return。
+        带显式 X-Idempotency-Key 时覆盖全部写接口（防双击/网络重试/多标签）；
+        无键时仅对 /api/movements 做短时并发兜底，并在回放响应加标记头。"""
+        if method not in ('POST','PATCH','DELETE'):return False
+        raw=self.headers.get('X-Idempotency-Key','').strip()
+        valid_key=bool(raw) and bool(re.fullmatch(r'[A-Za-z0-9._:-]{8,128}',raw))
+        # 认证端点、预览/重映射（二进制或只读）不参与幂等
+        if valid_key:
+            if p in ('/api/login','/api/setup','/api/logout') or 'preview' in p or 'remap' in p:return False
+        else:
+            if method!='POST' or p not in IDEMPOTENT_AUTO_POST:return False
         # 必须走完整 CSRF 校验：否则缺 CSRF 的请求会命中已完成记录并回放 200，绕过鉴权。
         a=self.auth(csrf=True)
         if a is False or a is None:return False   # 交给业务 handler 返回 401/403
         u=a
         try:d=self.body()
         except Exception:return False   # 非法 JSON 交给业务 handler 返回 400
-        raw=self.headers.get('X-Idempotency-Key','').strip()
         try:
             req_hash=hashlib.sha256(json.dumps(d,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
         except Exception:req_hash=hashlib.sha256(repr(d).encode('utf-8','replace')).hexdigest()
-        if raw:
-            if not re.fullmatch(r'[A-Za-z0-9._:-]{8,128}',raw):
-                return False   # 格式非法交给业务层（不因幂等键破坏兼容）
-            key='idem:%s:%s'%(u['id'],raw); durable=True
+        method_path=method+' '+p
+        if valid_key:
+            key='idem:%s:%s:%s'%(u['id'],method_path,raw); durable=True
         else:
-            # 无显式 UUID：只对累加型入库做短时并发去重；其余交给业务层自身约束。
-            if method!='POST' or p not in IDEMPOTENT_AUTO_POST:return False
             bucket=int(time.time())//IDEMPOTENCY_AUTO_BUCKET
-            key='auto:%s:%s:%s:%s:%d'%(u['id'],method,p,req_hash,bucket); durable=True
-        verdict=idem_begin(key,u['id'],p,req_hash,durable)
+            key='auto:%s:%s:%s:%d'%(u['id'],method_path,req_hash,bucket); durable=True
+        verdict=idem_begin(key,u['id'],method_path,req_hash,durable)
         if verdict is not None:
+            self._idem_replay=True       # 回放/冲突响应带标记，客户端可识别
             self.send(verdict[0],verdict[1])
             return True
         self._idem_key=key; self._idem_durable=durable
@@ -1205,7 +1213,8 @@ class Handler(BaseHTTPRequestHandler):
                 'rack_u_slots':46,'qty_max':MAX_QTY,
                 'planned_min':0,'planned_max':MAX_QTY,
                 'server_field_limits':dict(SERVER_FIELD_LIMITS),
-                'idempotency':{'header':'X-Idempotency-Key','ttl_seconds':IDEMPOTENCY_TTL,
+                'idempotency':{'header':'X-Idempotency-Key','replay_header':'X-Idempotency-Replay',
+                               'scope':'method+path+key','ttl_seconds':IDEMPOTENCY_TTL,
                                'login_max_fails':LOGIN_MAX_FAILS,'login_base_lock_seconds':LOGIN_BASE_LOCK},
                 'import':{'header_scan_rows':HEADER_SCAN_ROWS,
                           'row_limit':IMPORT_ROW_LIMIT,'page_size':50},
@@ -1990,6 +1999,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.send(200,dict(u)|{'csrf':csrf},headers={'Set-Cookie':f'sid={token}; HttpOnly; SameSite=Strict{secure}; Path=/; Max-Age={SESSION_SECONDS}'})
     def do_DELETE(self):
         p=urllib.parse.urlparse(self.path).path
+        if self.idem_guard(p,'DELETE'):return
         u=self.require(csrf=True)
         if not u:return
         if not u['is_admin']:return self.send(403,{'error':'仅管理员可删除记录'})
