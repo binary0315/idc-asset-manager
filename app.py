@@ -1,6 +1,6 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata
+import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 from datetime import date, datetime, timedelta
@@ -15,6 +15,20 @@ IMPORT_TOKENS = {}
 MOVEMENT_IMPORT_TOKENS = {}
 SERVER_IMPORT_TOKENS = {}
 SERVER_COMPONENT_IMPORT_TOKENS = {}
+LOGIN_FAILS = {}          # (ip, username) -> [失败次数, 首次失败时间, 解锁时间]
+LOGIN_LOCK = threading.Lock()
+IDEMPOTENCY_LOCK = threading.Lock()
+# 无显式 UUID 的裸请求：按 3 秒时间桶持久化去重，覆盖并发/双击/网络重试。
+IDEMPOTENCY_AUTO_BUCKET = 3
+# 会产生新业务记录的写接口（其余写操作为天然幂等或已有 token 保护）。
+# 显式 UUID 幂等覆盖的写接口（前端为每个动作生成 X-Idempotency-Key）。
+IDEMPOTENT_POST = {'/api/items', '/api/movements', '/api/servers', '/api/users'}
+# 裸请求兜底只覆盖累加型库存变动；其它接口靠自身唯一约束/token，避免吞掉合法的同参数操作。
+IDEMPOTENT_AUTO_POST = {'/api/movements'}
+# 导入确认/回收站还原清空自带一次性 token 或天然幂等语义，重放必须被它们自己拒绝。
+IDEMPOTENT_PATCH_PREFIX = ('/api/items/', '/api/movements/', '/api/servers/',
+                           '/api/material-spares/', '/api/server-spares/',
+                           '/api/server-components/', '/api/users/')
 SERVER_SPARE_STATUSES = ('待检测','可用备件','待RMA','RMA处理中','RMA已完成','报废','其他')
 SPARE_NOTES_LIMIT = 500  # 物料坏件与服务器备件统一口径
 # 历史表用 server_id 关联（SN 可变）。-1 表示原服务器已删除、历史已归档，不会再被复用 SN 错挂。
@@ -24,6 +38,16 @@ IMPORT_LIMIT = 20 * 1024 * 1024
 IMPORT_ROW_LIMIT = 10000
 # 单个机房的物料量级为百万，留 10 倍余量；同时挡住超大整数导致的写库溢出。
 MAX_QTY = 10_000_000
+# 服务器字段上限与 Excel 导入口径一致，避免异常长文本污染列表/导出/渲染。
+SERVER_FIELD_LIMITS = {'room': 200, 'rack': 200, 'sn': 200}
+IDEMPOTENCY_TTL = 7 * 24 * 3600
+# 登录限速：按 (来源 IP, 用户名) 计数，失败 5 次锁定 60 秒，之后指数退避，最长 15 分钟。
+LOGIN_WINDOW = 300
+LOGIN_MAX_FAILS = 5
+LOGIN_BASE_LOCK = 60
+LOGIN_MAX_LOCK = 900
+# 点击劫持防护。默认同源；若嵌入在跨源 iframe 的预览面板中，设环境变量 IDC_FRAME_OPTIONS= 可放开。
+FRAME_OPTIONS = os.environ.get('IDC_FRAME_OPTIONS', 'SAMEORIGIN')
 HEADER_SCAN_ROWS = 30
 IMPORT_TOKEN_MAX = 60
 ITEM_FIELDS = ('category','model','description','planned','supplier','location','owner','notes')
@@ -62,19 +86,50 @@ def clean_text(value, field='notes'):
     if len(text)>limit:raise ValueError(f'{FIELD_LABELS.get(field,field)}不能超过 {limit} 个字符')
     return text
 
+def parse_planned(value, label='计划数量', allow_decimal_zero=False):
+    """统一计划数量解析：0..MAX_QTY 的严格整数，拒绝布尔、浮点与非数字文本。
+    allow_decimal_zero 仅供 Excel 单元格兼容 5.0 这类写法。"""
+    if isinstance(value, bool):
+        raise ValueError(f'{label}必须是 0 到 {MAX_QTY:,} 之间的整数，不接受布尔值')
+    if isinstance(value, int):
+        q = value
+    elif isinstance(value, float):
+        if allow_decimal_zero and math.isfinite(value) and value.is_integer():
+            q = int(value)
+        else:
+            raise ValueError(f'{label}必须是 0 到 {MAX_QTY:,} 之间的整数，不接受小数')
+    elif isinstance(value, str):
+        s = value.strip().replace(',', '')
+        pattern = r'\d+(?:\.0+)?' if allow_decimal_zero else r'\d+'
+        if not re.fullmatch(pattern, s):
+            raise ValueError(f'{label}必须是 0 到 {MAX_QTY:,} 之间的整数')
+        q = int(float(s)) if '.' in s else int(s)
+    else:
+        raise ValueError(f'{label}必须是 0 到 {MAX_QTY:,} 之间的整数')
+    if q < 0 or q > MAX_QTY:
+        raise ValueError(f'{label}必须是 0 到 {MAX_QTY:,} 之间的整数')
+    return q
+
+
+def validate_server_fields(room, rack, sn):
+    """服务器三个字段统一限长（与 Excel 导入口径一致），失败抛 ValueError。"""
+    limits = SERVER_FIELD_LIMITS
+    labels = {'room': '机房/房间', 'rack': '机柜位置', 'sn': 'SN'}
+    for k, v in (('room', room), ('rack', rack), ('sn', sn)):
+        if not v:
+            raise ValueError('机房、机柜位置和 SN 均为必填项')
+        if len(v) > limits[k]:
+            raise ValueError(f'{labels[k]}不能超过 {limits[k]} 个字符')
+    return room, rack, sn
+
+
 def validate_item_fields(d, partial=False):
     """统一校验并规范化台账字段；partial=True 用于 PATCH。失败抛 ValueError。"""
     out={}
     for k in ITEM_FIELDS:
         if partial and k not in d:continue
         if k=='planned':
-            try:
-                raw=d.get('planned',0)
-                if raw is None or str(raw).strip()=='' or isinstance(raw,bool):raise ValueError()
-                q=float(raw)
-                if not q.is_integer() or q<0:raise ValueError()
-                out['planned']=int(q)
-            except (ValueError,TypeError):raise ValueError('计划数量必须是大于等于 0 的整数')
+            out['planned']=parse_planned(d.get('planned',0))
         else:
             v=clean_text(d.get(k),k)
             if k in ('model','description') and not v:raise ValueError(f'{FIELD_LABELS[k]}不能为空')
@@ -254,11 +309,9 @@ def build_item_preview(batch, header_row, mapping, token, header_issues=None):
                     if field in mapping:issues.append('计划数量为空')
                 else:
                     try:
-                        q=float(str(raw).replace(',',''))
-                        if q<0 or not q.is_integer():raise ValueError()
-                        record['planned']=int(q)
-                    except (ValueError,TypeError,AttributeError):
-                        record['planned']=0; issues.append('计划数量必须是大于等于 0 的整数')
+                        record['planned']=parse_planned(raw, allow_decimal_zero=True)
+                    except ValueError as e:
+                        record['planned']=0; issues.append(str(e))
             elif field=='category':
                 cat=normalize_category(raw or default_category)
                 if not cat:
@@ -563,8 +616,8 @@ def parse_server_row(get, rn, ctx):
     for label, val in (('机房/房间', room), ('机柜位置', rack), ('SN', sn)):
         if not val:
             issues.append(label + '为空')
-        elif len(val) > 200:
-            issues.append(label + '不能超过 200 个字符')
+        elif len(val) > max(SERVER_FIELD_LIMITS.values()):
+            issues.append(label + f'不能超过 {max(SERVER_FIELD_LIMITS.values())} 个字符')
     if sn and sn in ctx['seen']:
         issues.append('本文件中 SN 重复')
     if sn and sn in ctx['existing']:
@@ -758,6 +811,8 @@ def init():
         c.executescript('''
         CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, salt BLOB NOT NULL, pw_hash BLOB NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, can_view INTEGER NOT NULL DEFAULT 1, can_edit INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, csrf TEXT NOT NULL, expires INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS idempotency(key TEXT PRIMARY KEY, user_id INTEGER, endpoint TEXT, request_hash TEXT, status INTEGER, response TEXT, created_at INTEGER NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_idempotency_created ON idempotency(created_at);
         CREATE TABLE IF NOT EXISTS items(id INTEGER PRIMARY KEY, category TEXT NOT NULL DEFAULT '光模块', model TEXT NOT NULL, model_key TEXT, description TEXT NOT NULL, supplier TEXT DEFAULT '', planned INTEGER NOT NULL DEFAULT 0, location TEXT DEFAULT '', owner TEXT DEFAULT '', notes TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(model));
         CREATE TABLE IF NOT EXISTS deletion_audit(id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, record_id INTEGER, payload TEXT NOT NULL, deleted_by INTEGER, deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, restored_at TEXT, restored_by INTEGER);
         CREATE TABLE IF NOT EXISTS operation_log(id INTEGER PRIMARY KEY, action TEXT NOT NULL, target TEXT DEFAULT '', detail TEXT DEFAULT '', operated_by INTEGER, operated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -833,6 +888,89 @@ def init():
 
 def pw_hash(password,salt): return hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,310000)
 def json_bytes(obj): return json.dumps(obj,ensure_ascii=False).encode('utf-8')
+
+# 不存在账号也做一次等价的 PBKDF2，消除用户名枚举的时序差。
+DUMMY_SALT = b'IDC_TIMING_EQUALIZER_'[:16]
+DUMMY_HASH = pw_hash('__timing_equalizer__', DUMMY_SALT)
+
+def verify_credentials(username, password):
+    with db() as c:
+        u=c.execute('SELECT * FROM users WHERE username=? AND active=1',(username,)).fetchone()
+    salt=bytes(u['salt']) if u else DUMMY_SALT
+    expected=bytes(u['pw_hash']) if u else DUMMY_HASH
+    ok=hmac.compare_digest(pw_hash(password,salt),expected)
+    return dict(u) if (u and ok) else None
+
+def login_block_seconds(ip, username):
+    """返回还需等待的秒数；0 表示放行。"""
+    now=int(time.time()); key=(ip, username)
+    with LOGIN_LOCK:
+        rec=LOGIN_FAILS.get(key)
+        if not rec:return 0
+        if now-rec[1]>LOGIN_WINDOW:
+            LOGIN_FAILS.pop(key,None);return 0
+        return max(0, rec[2]-now)
+
+def login_record_fail(ip, username):
+    now=int(time.time()); key=(ip, username)
+    with LOGIN_LOCK:
+        rec=LOGIN_FAILS.get(key)
+        if not rec or now-rec[1]>LOGIN_WINDOW:rec=[0,now,0]
+        rec[0]+=1
+        if rec[0]>=LOGIN_MAX_FAILS:
+            lock=min(LOGIN_BASE_LOCK*(2**(rec[0]-LOGIN_MAX_FAILS)),LOGIN_MAX_LOCK)
+            rec[2]=now+lock
+        LOGIN_FAILS[key]=rec
+        if len(LOGIN_FAILS)>2000:
+            for k,v in list(LOGIN_FAILS.items()):
+                if now-v[1]>LOGIN_WINDOW:LOGIN_FAILS.pop(k,None)
+
+def login_clear(ip, username):
+    with LOGIN_LOCK: LOGIN_FAILS.pop((ip,username),None)
+
+def idem_begin(key, user_id, endpoint, req_hash, durable):
+    """返回 None 表示可以执行；返回 (status, obj) 表示应直接回放/拒绝。
+    所有关键写请求都持久化首次结果：显式 UUID 跨时间严格幂等；
+    裸请求用 3 秒时间桶去重，同一桶内并发/重试统一回放首次响应。"""
+    now=int(time.time()); pending=False
+    try:
+        with db() as c:
+            if now % 16 == 0:
+                c.execute('DELETE FROM idempotency WHERE created_at<?',(now-IDEMPOTENCY_TTL,))
+            cur=c.execute('INSERT OR IGNORE INTO idempotency(key,user_id,endpoint,request_hash,created_at) VALUES(?,?,?,?,?)',
+                          (key,user_id,endpoint,req_hash,now))
+            if cur.rowcount:return None
+            row=c.execute('SELECT status,response,request_hash FROM idempotency WHERE key=?',(key,)).fetchone()
+            if not row:return (409, {'error':'重复请求，请稍后重试'})
+            if row['request_hash']!=req_hash:
+                return (409, {'error':'相同幂等键对应了不同的请求内容'})
+            if row['status'] is not None:
+                try:return (row['status'], json.loads(row['response']))
+                except Exception:return (409, {'error':'重复请求，请稍后重试'})
+            pending=True
+    except sqlite3.Error:
+        return (409, {'error':'重复请求，请稍后重试'})
+    if pending:
+        # 同一幂等键的并发请求：等待首次请求完成，然后回放它的结果。
+        for _ in range(60):
+            time.sleep(0.05)
+            try:
+                with db() as c2:
+                    r=c2.execute('SELECT status,response FROM idempotency WHERE key=?',(key,)).fetchone()
+                if r and r['status'] is not None:
+                    return (r['status'], json.loads(r['response']))
+            except Exception: pass
+        return (409, {'error':'相同请求处理超时，请稍后刷新页面确认'})
+
+def idem_finish(key, status, response_bytes, durable):
+    try:
+        with db() as c:
+            if status>=500:
+                c.execute('DELETE FROM idempotency WHERE key=?',(key,))
+            else:
+                c.execute('UPDATE idempotency SET status=?,response=? WHERE key=?',
+                          (status,response_bytes.decode('utf-8','replace'),key))
+    except Exception: pass
 
 def parse_qty(value, label='数量'):
     """严格正整数：拒绝小数、布尔、非数字字符串、零/负数与超大值。"""
@@ -930,12 +1068,18 @@ class Handler(BaseHTTPRequestHandler):
     server_version='IDCInventory/1.0'
     def log_message(self,fmt,*args): print('%s - %s' % (self.address_string(),fmt%args))
     def handle_one_request(self):
+        self._idem_key=None; self._idem_durable=False; self._idem_result=None
         try:super().handle_one_request()
         except (BrokenPipeError,ConnectionResetError):self.close_connection=True
         except Exception as e:
             print('[unhandled] %s: %s'%(type(e).__name__,e))
             try:self.send(500,{'error':'服务器内部错误，请稍后重试'})
             except Exception:self.close_connection=True
+        finally:
+            if getattr(self,'_idem_key',None):
+                st,body=getattr(self,'_idem_result',None) or (500,b'{}')
+                try:idem_finish(self._idem_key,st,body,self._idem_durable)
+                except Exception:pass
     def do_PUT(self): self.send(405,{'error':'不支持的请求方法；新增用 POST，修改用 PATCH，删除用 DELETE'})
     def send_error(self,code,message=None,explain=None):
         self.close_connection=True
@@ -944,15 +1088,62 @@ class Handler(BaseHTTPRequestHandler):
     def send(self,status,obj=None,headers=None,content_type='application/json; charset=utf-8'):
         body=obj if isinstance(obj,bytes) else json_bytes(obj or {})
         self.send_response(status); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Cache-Control','no-store')
+        # 单文件前端含内联 script/style 与 onclick，CSP 必须允许 inline；frame-ancestors 用 'self' 以兼容内置预览面板。
+        ancestors = " frame-ancestors 'self';" if FRAME_OPTIONS else ''
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; form-action 'self';" + ancestors + " base-uri 'self'; object-src 'none'")
+        if FRAME_OPTIONS: self.send_header('X-Frame-Options',FRAME_OPTIONS)
+        self.send_header('Referrer-Policy','no-referrer')
+        self.send_header('Permissions-Policy','geolocation=(), microphone=(), camera=(), payment=()')
         for k,v in (headers or {}).items(): self.send_header(k,v)
+        if getattr(self,'_idem_key',None) and getattr(self,'_idem_result',None) is None:
+            self._idem_result=(status,body)
         self.end_headers(); self.wfile.write(body)
     def body(self):
+        if getattr(self,'_body_done',False):
+            if self._body_error:raise ValueError(self._body_error)
+            return self._body_cache
+        self._body_done=True; self._body_error=None; self._body_cache=None
         n=int(self.headers.get('Content-Length','0') or 0)
-        if n>1_000_000: raise ValueError('请求内容过大')
+        if n>1_000_000:
+            self._body_error='请求内容过大'; raise ValueError(self._body_error)
         try: d=json.loads(self.rfile.read(n) or b'{}')
-        except ValueError:raise ValueError('请求内容不是有效的 JSON')
-        if not isinstance(d,dict):raise ValueError('请求内容必须是 JSON 对象')
+        except ValueError:
+            self._body_error='请求内容不是有效的 JSON'; raise ValueError(self._body_error)
+        if not isinstance(d,dict):
+            self._body_error='请求内容必须是 JSON 对象'; raise ValueError(self._body_error)
+        self._body_cache=d
         return d
+
+    def idem_guard(self,p,method):
+        """关键写接口统一幂等入口。返回 True 表示响应已发出、调用方应立即 return。"""
+        enabled=(method=='POST' and p in IDEMPOTENT_POST) or \
+                (method=='PATCH' and p.startswith(IDEMPOTENT_PATCH_PREFIX))
+        if not enabled:return False
+        # 必须走完整 CSRF 校验：否则缺 CSRF 的请求会命中已完成记录并回放 200，绕过鉴权。
+        a=self.auth(csrf=True)
+        if a is False or a is None:return False   # 交给业务 handler 返回 401/403
+        u=a
+        try:d=self.body()
+        except Exception:return False   # 非法 JSON 交给业务 handler 返回 400
+        raw=self.headers.get('X-Idempotency-Key','').strip()
+        try:
+            req_hash=hashlib.sha256(json.dumps(d,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
+        except Exception:req_hash=hashlib.sha256(repr(d).encode('utf-8','replace')).hexdigest()
+        if raw:
+            if not re.fullmatch(r'[A-Za-z0-9._:-]{8,128}',raw):
+                return False   # 格式非法交给业务层（不因幂等键破坏兼容）
+            key='idem:%s:%s'%(u['id'],raw); durable=True
+        else:
+            # 无显式 UUID：只对累加型入库做短时并发去重；其余交给业务层自身约束。
+            if method!='POST' or p not in IDEMPOTENT_AUTO_POST:return False
+            bucket=int(time.time())//IDEMPOTENCY_AUTO_BUCKET
+            key='auto:%s:%s:%s:%s:%d'%(u['id'],method,p,req_hash,bucket); durable=True
+        verdict=idem_begin(key,u['id'],p,req_hash,durable)
+        if verdict is not None:
+            self.send(verdict[0],verdict[1])
+            return True
+        self._idem_key=key; self._idem_durable=durable
+        return False
     def auth(self,csrf=False):
         token=''
         for part in self.headers.get('Cookie','').split(';'):
@@ -1012,6 +1203,10 @@ class Handler(BaseHTTPRequestHandler):
                 'material_spare_statuses':list(MATERIAL_SPARE_STATUSES),
                 'server_spare_statuses':list(SERVER_SPARE_STATUSES),
                 'rack_u_slots':46,'qty_max':MAX_QTY,
+                'planned_min':0,'planned_max':MAX_QTY,
+                'server_field_limits':dict(SERVER_FIELD_LIMITS),
+                'idempotency':{'header':'X-Idempotency-Key','ttl_seconds':IDEMPOTENCY_TTL,
+                               'login_max_fails':LOGIN_MAX_FAILS,'login_base_lock_seconds':LOGIN_BASE_LOCK},
                 'import':{'header_scan_rows':HEADER_SCAN_ROWS,
                           'row_limit':IMPORT_ROW_LIMIT,'page_size':50},
                 'configurable':False})
@@ -1153,6 +1348,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.send(404,{'error':'没有这个页面'})
     def do_POST(self):
         p=urllib.parse.urlparse(self.path).path
+        if self.idem_guard(p,'POST'):return
         if p=='/api/material-spare-cases':return self.send(410,{'error':'备件由库存变动明细中的报废记录自动生成'})
         if p=='/api/import-server-components-preview':
             u=self.require('can_edit')
@@ -1441,12 +1637,10 @@ class Handler(BaseHTTPRequestHandler):
                                else str(raw.get('model','')).strip())
                         desc=str(raw.get('description','')).strip()
                         category=str(raw.get('category','')).strip()
-                        planned_raw=raw.get('planned',-1)
-                        if planned_raw is None or planned_raw=='' or isinstance(planned_raw,bool):
-                            raise ValueError(f'第 {i} 行计划数量必须是大于等于 0 的整数')
-                        planned=float(planned_raw)
-                        if not planned.is_integer():raise ValueError(f'第 {i} 行计划数量必须是整数')
-                        planned=int(planned)
+                        try:
+                            planned=parse_planned(raw.get('planned',-1), allow_decimal_zero=True)
+                        except ValueError:
+                            raise ValueError(f'第 {i} 行计划数量必须是 0 到 {MAX_QTY:,} 之间的整数')
                         if not model or not desc:raise ValueError(f'第 {i} 行型号和名称/规格不能为空')
                         if category not in ('光模块','线缆'):raise ValueError(f'第 {i} 行类别只能是光模块或线缆')
                         if planned<0:raise ValueError(f'第 {i} 行计划数量必须是大于等于 0 的整数')
@@ -1497,16 +1691,35 @@ class Handler(BaseHTTPRequestHandler):
         try: d=self.body()
         except Exception as e:return self.send(400,{'error':'无法读取提交内容'})
         if p=='/api/setup':
-            with db() as c:
-                if c.execute('SELECT count(*) FROM users').fetchone()[0]!=0:return self.send(409,{'error':'管理员已初始化'})
-                username=str(d.get('username','')).strip(); password=str(d.get('password',''))
-                if len(username)<3 or len(username)>40 or len(password)<12:return self.send(400,{'error':'用户名至少 3 位，管理员密码至少 12 位'})
-                salt=secrets.token_bytes(16); cur=c.execute('INSERT INTO users(username,salt,pw_hash,is_admin,can_view,can_edit) VALUES(?,?,?,1,1,1)',(username,salt,pw_hash(password,salt))); uid=cur.lastrowid
+            username=str(d.get('username','')).strip(); password=str(d.get('password',''))
+            if len(username)<3 or len(username)>40 or len(password)<12:return self.send(400,{'error':'用户名至少 3 位，管理员密码至少 12 位'})
+            salt=secrets.token_bytes(16); hashed=pw_hash(password,salt)
+            # 独占写事务 + 条件插入 + 检查受影响行数：并发初始化只允许一次成功。
+            c=db()
+            try:
+                c.execute('BEGIN IMMEDIATE')
+                cur=c.execute('''INSERT INTO users(username,salt,pw_hash,is_admin,can_view,can_edit)
+                                 SELECT ?,?,?,1,1,1 WHERE NOT EXISTS(SELECT 1 FROM users)''',
+                              (username,salt,hashed))
+                if cur.rowcount!=1:
+                    c.rollback(); return self.send(409,{'error':'管理员已初始化'})
+                uid=cur.lastrowid; c.commit()
+            except sqlite3.IntegrityError:
+                c.rollback(); return self.send(409,{'error':'管理员已初始化'})
+            except Exception:
+                c.rollback(); raise
+            finally:c.close()
             return self.make_session(uid)
         if p=='/api/login':
             username=str(d.get('username','')).strip(); password=str(d.get('password',''))
-            with db() as c: u=c.execute('SELECT * FROM users WHERE username=? AND active=1',(username,)).fetchone()
-            if not u or not hmac.compare_digest(bytes(u['pw_hash']),pw_hash(password,bytes(u['salt']))): return self.send(401,{'error':'用户名或密码不正确'})
+            ip=self.client_address[0] if self.client_address else 'unknown'
+            wait=login_block_seconds(ip,username)
+            if wait:return self.send(429,{'error':f'登录失败次数过多，请 {wait} 秒后重试'},headers={'Retry-After':str(wait)})
+            u=verify_credentials(username,password)
+            if not u:
+                login_record_fail(ip,username)
+                return self.send(401,{'error':'用户名或密码不正确'})
+            login_clear(ip,username)
             return self.make_session(u['id'])
         if p=='/api/logout':
             u=self.require(csrf=True)
@@ -1520,7 +1733,8 @@ class Handler(BaseHTTPRequestHandler):
             u=self.require('can_edit')
             if not u:return
             room=str(d.get('room','')).strip();rack=str(d.get('rack','')).strip();sn=str(d.get('sn','')).strip()
-            if not room or not rack or not sn:return self.send(400,{'error':'机房、机柜位置和 SN 均为必填项'})
+            try:room,rack,sn=validate_server_fields(room,rack,sn)
+            except ValueError as e:return self.send(400,{'error':str(e)})
             try:
                 with db() as c:c.execute('INSERT INTO servers(room,rack,sn) VALUES(?,?,?)',(room,rack,sn))
             except sqlite3.IntegrityError:return self.send(409,{'error':'该 SN 已存在'})
@@ -1582,6 +1796,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.send(404,{'error':'没有这个接口'})
     def do_PATCH(self):
         p=urllib.parse.urlparse(self.path).path
+        if self.idem_guard(p,'PATCH'):return
         if p.startswith('/api/material-spares/'):
             u=self.require('can_edit')
             if not u:return
@@ -1688,7 +1903,8 @@ class Handler(BaseHTTPRequestHandler):
             try:d=self.body();server_id=int(p.rsplit('/',1)[1])
             except:return self.send(400,{'error':'服务器记录格式无效'})
             room=str(d.get('room','')).strip();rack=str(d.get('rack','')).strip();sn=str(d.get('sn','')).strip()
-            if not room or not rack or not sn:return self.send(400,{'error':'机房、机柜位置和 SN 均为必填项'})
+            try:room,rack,sn=validate_server_fields(room,rack,sn)
+            except ValueError as e:return self.send(400,{'error':str(e)})
             try:
                 with db() as c:
                     cur=c.execute('UPDATE servers SET room=?,rack=?,sn=? WHERE id=?',(room,rack,sn,server_id))
@@ -1768,7 +1984,10 @@ class Handler(BaseHTTPRequestHandler):
         with db() as c:
             c.execute('INSERT INTO sessions(token_hash,user_id,csrf,expires) VALUES(?,?,?,?)',(th,uid,csrf,int(time.time())+SESSION_SECONDS))
             u=c.execute('SELECT id,username,is_admin,can_view,can_edit FROM users WHERE id=?',(uid,)).fetchone()
-        return self.send(200,dict(u)|{'csrf':csrf},headers={'Set-Cookie':f'sid={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_SECONDS}'})
+        # 内网 HTTP 直接部署不能加 Secure（否则 Cookie 不会被发送）；经 HTTPS 反代时自动补齐。
+        fwd=(self.headers.get('X-Forwarded-Proto') or '').split(',')[0].strip().lower()
+        secure='; Secure' if (fwd=='https' or getattr(self.connection,'_sslobj',None)) else ''
+        return self.send(200,dict(u)|{'csrf':csrf},headers={'Set-Cookie':f'sid={token}; HttpOnly; SameSite=Strict{secure}; Path=/; Max-Age={SESSION_SECONDS}'})
     def do_DELETE(self):
         p=urllib.parse.urlparse(self.path).path
         u=self.require(csrf=True)
