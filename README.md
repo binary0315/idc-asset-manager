@@ -2,7 +2,7 @@
 
 基于 **Python 标准库 + SQLite** 的轻量网页应用，用于管理机房光模块/线缆物料台账、库存变动、坏件 RMA 追溯，以及 GB300 机房机柜 46U 视图与部件更换备件。
 
-**零第三方依赖**：不需要 `pip install`，有 Python 3.10+ 就能跑。后端 `app.py` + 前端单文件 `index.html`，数据存本地 SQLite。
+**零第三方依赖**：不需要 `pip install`，有 Python 3.10+ 就能跑。后端 `app.py` + `idc/` 业务模块，前端 `index.html` + `static/` 资源，数据存本地 SQLite。
 
 ---
 
@@ -114,13 +114,18 @@ python app.py
 
 ## 项目文件
 
-| 文件 | 说明 |
+| 文件 / 目录 | 说明 |
 |---|---|
-| `app.py` | 后端：HTTP 服务、全部 API、权限、Excel 解析、数据库迁移 |
-| `index.html` | 前端：单文件页面（含全部样式与脚本） |
+| `app.py` | 后端入口：HTTP 服务与全部 API 路由；启动方式仍是 `python app.py` |
+| `idc/` | 后端业务模块（按职责拆分）：`config`（常量口径）、`state`（进程内状态）、`db`（连接与迁移）、`crypto`（口令/会话/限速）、`validation`（字段与数量校验）、`excel`（四类导入解析与预览）、`idem`（幂等）、`stock`（库存约束）、`audit`（日志与快照） |
+| `index.html` | 前端页面结构 |
+| `static/app.css` | 前端样式（单一设计系统、响应式、可访问性） |
+| `static/app.js` | 前端全部交互逻辑 |
 | `run_lan.py` | 一键以 `0.0.0.0:8002` 启动，供局域网访问 |
 | `部署说明.txt` | 面向 Windows 内网部署的补充说明 |
 | `idc_inventory.sqlite3` | 运行时自动生成，**不进仓库** |
+
+> 从 `v1.0.1` 起前后端按职责拆分，但仍**零第三方依赖**：部署时需保留 `app.py`、`idc/`、`index.html`、`static/` 四个部分，`python app.py` 的启动方式不变。
 
 ---
 
@@ -134,7 +139,7 @@ python app.py
 - 退出登录只有服务端确认成功（或返回 401 会话已失效）才清理本地状态；网络异常时保持当前界面并提示重试，不会出现「界面退出了但 Cookie 仍有效」。
 - 四类 Excel 导入（物料台账、入库明细、GB300 服务器、46U 部件）成功后都会写入批次操作日志（条数与关键口径），便于追溯。请求期间按钮进入禁用并显示「校验中 / 写入中」，成功后提示行数与耗时。
 - 幂等回放响应带 `X-Idempotency-Replay: 1`，客户端可区分「实际执行」与「回放首次结果」；首次响应无此头。口径见 `/api/config` 的 `idempotency`。
-- 前端 `index.html` 为单文件，函数定义唯一（无同名覆盖）；修改或追加功能时请勿再声明同名函数。
+- 前端交互集中在 `static/app.js`，函数定义唯一（无同名覆盖）；修改或追加功能时请勿再声明同名函数。样式改动放 `static/app.css`。
 - 响应统一带 CSP、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` 与 `nosniff`。因前端是单文件（内联样式与脚本），CSP 放行 `'unsafe-inline'`；经 HTTPS 反向代理部署时会话 Cookie 自动补充 `Secure`。若需嵌入跨源 iframe，可设环境变量 `IDC_FRAME_OPTIONS=` 放开帧限制。
 - 数量上限、字段长度等口径统一由 `/api/config` 公布，后端所有写入路径共用同一套严格校验。
 - 本应用适用于**可信内网**。对外开放前请自行评估认证、传输加密与访问控制。
