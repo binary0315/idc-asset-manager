@@ -687,7 +687,7 @@ function renderImportPreview(d){
       <div class="import-pager"><button type="button" class="secondary" id="itemDeletedRestore" onclick="pvRestore('items',null)">恢复已删除的行</button><span id="itemDeletedInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
       <div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="importPreviewBody"></tbody></table></div></div>
-    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="confirmImport">${verb} ${d.rows} 条</button></div>`:''}
+    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="confirmImport">${verb} ${d.rows} 条</button><div id="importResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   renderImportPage();pvUpdateBar('items',null);
   if(d.token||d.edit_token)$('#confirmImport').onclick=()=>confirmImport(d.token||d.edit_token);
@@ -713,22 +713,24 @@ async function applyImportMapping(){
 }
 
 async function confirmImport(token){
+  let _done=false;
   const _t0=typeof performance!=='undefined'&&performance.now?performance.now():Date.now(),_btn=pvBtn('#confirmImport');
   collectVisiblePreview();pvBegin(_btn,'校验中…');
   const d=window.currentImportData||{};
   const rows=window.itemImportPreviewRows||[];
-  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
+  if(!rows.length){const m='预览中没有可导入的数据；可点「恢复已删除的行」或重新上传';uiToast(m);$('#importResult').textContent=m;return}
   const verb=d.mode==='update'?'按预览更新这些物料的台账字段（型号与库存数量不变）':'将预览中的物料写入物料台账';
   if(!await uiConfirm(`确认${verb}？本次不会写入库存变动明细。`))return;
   try{
     pvBegin(_btn,'写入中…');
     const r=await api('/api/import-items',{method:'POST',body:JSON.stringify({token,rows:window.itemImportPreviewRows})});
-    $('#importMsg').textContent=(d.mode==='update'?`已更新 ${r.imported} 条物料台账。`:`已导入 ${r.imported} 条物料，库存变动明细未改动。`)+`（${r.imported} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
-    $('#importPreview').innerHTML='';$('#importForm').reset();
+    const msg=(d.mode==='update'?`已更新 ${r.imported} 条物料台账。`:`已导入 ${r.imported} 条物料，库存变动明细未改动。`)+`（${r.imported} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
+    $('#importResult').textContent=msg;uiToast(msg,'ok');
     window.currentImportData=null;window.itemImportPreviewRows=[];window.pvDeleted_items=[];
     await loadItems();filterItems();
-  }catch(e){$('#importMsg').textContent=e.message}
-  finally{pvEnd(_btn)}
+    _done=true;
+  }catch(e){$('#importResult').textContent=e.message}
+  finally{pvEnd(_btn,_done)}
 }
 
 $('#importForm').onsubmit=async e=>{
@@ -1036,7 +1038,7 @@ function renderMovementImportPreview(d){
       <div class="import-pager"><button type="button" class="secondary" id="mvDeletedRestore" data-act="mv-restore">恢复已删除的行</button><span id="mvDeletedInfo" class="hint"></span><span id="mvQtyInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；删错了点「恢复已删除的行」。确认时只会写入当前预览中的行。</p>
       <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
-    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button></div>`:''}
+    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button><div id="movementImportResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   $('#movementImportPreview').onclick=e=>{
     const b=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
@@ -1072,23 +1074,25 @@ async function applyMovementMapping(){
 }
 
 async function confirmMovementImport(token){
+  let _done=false;
   const _t0=typeof performance!=='undefined'&&performance.now?performance.now():Date.now(),_btn=pvBtn('#movementConfirmBtn');
   collectMovementVisible();pvBegin(_btn,'校验中…');
-  if(!token){uiToast('预览已失效，请重新上传 Excel 文件');return}
+  if(!token){const m='预览已失效，请重新上传 Excel 文件';uiToast(m);$('#movementImportResult').textContent=m;return}
   const rows=window.movementImportPreviewRows||[];
-  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
+  if(!rows.length){const m='预览中没有可导入的数据；可点「恢复已删除的行」或重新上传';uiToast(m);$('#movementImportResult').textContent=m;return}
   const bad=rows.findIndex(r=>!(Number(r.qty)>0));
-  if(bad>=0){const msg=`第 ${bad+1} 行入库数量必须大于 0，请在预览中补填，或删除该行后再导入。`;uiToast(msg);$('#movementImportMsg').textContent=msg;return}
+  if(bad>=0){const m=`第 ${bad+1} 行入库数量必须大于 0，请在预览中补填，或删除该行后再导入。`;uiToast(m);$('#movementImportResult').textContent=m;return}
   if(!await uiConfirm(`确认将预览中的 ${rows.length} 条记录作为「入库」写入库存变动明细？已删除的行不会写入。`))return;
   try{
     pvBegin(_btn,'写入中…');
     const d=await api('/api/import-movements',{method:'POST',body:JSON.stringify({token,rows:window.movementImportPreviewRows})});
-    $('#movementImportMsg').textContent=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。（${d.imported} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
-    $('#movementImportPreview').innerHTML='';$('#movementImportForm').reset();
+    const msg=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。（${d.imported} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
+    $('#movementImportResult').textContent=msg;uiToast(msg,'ok');
     window.mvImportData=null;window.movementImportPreviewRows=[];window.movementImportToken=null;window.pvDeleted_movements=[];
     await loadItems();await loadMoves();
-  }catch(e){$('#movementImportMsg').textContent=e.message}
-  finally{pvEnd(_btn)}
+    _done=true;
+  }catch(e){$('#movementImportResult').textContent=e.message}
+  finally{pvEnd(_btn,_done)}
 }
 
 $('#movementImportForm').onsubmit=async e=>{
@@ -1116,7 +1120,7 @@ const GB_IMPORT_CONFIG={
     boxId:'serverImportPreview',msgId:'serverImportMsg',formId:'serverImportForm',
     headerId:'gbSrvHeaderRow',mappingId:'gbSrvMapping',bodyId:'gbSrvBody',
     pageInfoId:'gbSrvPageInfo',prevId:'gbSrvPrev',nextId:'gbSrvNext',
-    confirmId:'confirmServerImport',
+    confirmId:'confirmServerImport',resultId:'serverImportResult',
     dataKey:'gbServerRows',pageKey:'gbServerPage',stateKey:'gbServerData',
     mapFields:['room','rack','sn'],tableFields:['room','rack','sn'],numberFields:[],
     headers:['机房/房间','机柜位置','SN'],labels:serverFieldLabels,
@@ -1130,7 +1134,7 @@ const GB_IMPORT_CONFIG={
     boxId:'serverComponentImportPreview',msgId:'serverComponentImportMsg',formId:'serverComponentImportForm',
     headerId:'gbCmpHeaderRow',mappingId:'gbCmpMapping',bodyId:'gbCmpBody',
     pageInfoId:'gbCmpPageInfo',prevId:'gbCmpPrev',nextId:'gbCmpNext',
-    confirmId:'confirmServerComponentImport',
+    confirmId:'confirmServerComponentImport',resultId:'serverComponentImportResult',
     dataKey:'gbComponentRows',pageKey:'gbComponentPage',stateKey:'gbComponentData',
     mapFields:['server_sn','node_sn','node','kp_name','bmc_mac'],
     tableFields:['server_sn','node_u','node_sn','kp_name','bmc_mac'],numberFields:['node_u'],
@@ -1177,7 +1181,7 @@ function renderGbPreview(kind,d){
       <div class="import-pager"><button type="button" class="secondary" id="${kind}DeletedRestore" onclick="pvRestore('gb','${kind}')">恢复已删除的行</button><span id="${kind}DeletedInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
       <div class="tablewrap preview-table"><table><thead><tr>${cfg.headers.map(h=>`<th>${esc(h)}</th>`).join('')}<th>操作</th></tr></thead><tbody id="${cfg.bodyId}"></tbody></table></div></div>
-    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="${cfg.confirmId}">确认导入 ${d.rows} 条</button></div>`:''}
+    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="${cfg.confirmId}">确认导入 ${d.rows} 条</button><div id="${cfg.resultId}" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   renderGbPage(kind);pvUpdateBar('gb',kind);
   if(d.token||d.edit_token)$('#'+cfg.confirmId).onclick=()=>confirmGbImport(kind,d.token||d.edit_token);
@@ -1239,10 +1243,11 @@ async function applyGbMapping(kind){
 }
 
 async function confirmGbImport(kind,token){
+  let _done=false;
   const _t0=typeof performance!=='undefined'&&performance.now?performance.now():Date.now(),_btn=pvBtn('#'+GB_IMPORT_CONFIG[kind].confirmId);
   collectGbVisible(kind);pvBegin(_btn,'校验中…');
   const cfg=GB_IMPORT_CONFIG[kind],rows=window[cfg.dataKey]||[];
-  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');pvEnd(_btn);return}
+  if(!rows.length){const m='预览中没有可导入的数据；可点「恢复已删除的行」或重新上传';uiToast(m);$('#'+cfg.resultId).textContent=m;pvEnd(_btn);return}
   if(kind==='components'){
     const by={};rows.forEach(r=>{const sn=r.server_sn||'';by[sn]=(by[sn]||0)+1});
     const short=Object.entries(by).filter(x=>x[1]<37);
@@ -1255,12 +1260,13 @@ async function confirmGbImport(kind,token){
   try{
     pvBegin(_btn,'写入中…');
     const r=await api(cfg.confirmUrl,{method:'POST',body:JSON.stringify({token,rows})});
-    $('#'+cfg.msgId).textContent=cfg.success(r)+`（${rows.length} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
-    $('#'+cfg.boxId).innerHTML='';
-    $('#'+cfg.formId).reset();window['pvDeleted_'+kind]=[];
+    const msg=cfg.success(r)+`（${rows.length} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
+    $('#'+cfg.resultId).textContent=msg;uiToast(msg,'ok');
+    window['pvDeleted_'+kind]=[];
     await cfg.after();
-  }catch(e){$('#'+cfg.msgId).textContent=e.message}
-  finally{pvEnd(_btn)}
+    _done=true;
+  }catch(e){$('#'+cfg.resultId).textContent=e.message}
+  finally{pvEnd(_btn,_done)}
 }
 
 
@@ -1336,7 +1342,7 @@ function pvUpdateBar(which,kind){
 /* ===== 操作反馈：阶段文案与耗时 ===== */
 function pvBtn(sel){try{return $(sel)}catch(e){return null}}
 function pvBegin(btn,text){if(btn){if(btn.dataset.pvPrev===undefined)btn.dataset.pvPrev=btn.textContent;btn.textContent=text;btn.disabled=true}return btn}
-function pvEnd(btn){if(btn&&btn.dataset.pvPrev!==undefined){btn.textContent=btn.dataset.pvPrev;btn.disabled=false;delete btn.dataset.pvPrev}}
+function pvEnd(btn,done){if(!btn)return;if(done){btn.textContent='已完成';btn.disabled=true;delete btn.dataset.pvPrev;return}if(btn.dataset.pvPrev!==undefined){btn.textContent=btn.dataset.pvPrev;btn.disabled=false;delete btn.dataset.pvPrev}}
 function pvSec(t0){return ((typeof performance!=='undefined'&&performance.now?performance.now():Date.now())-t0)/1000}
 
 </script></body></html>
