@@ -1,20 +1,12 @@
 # -*- coding: utf-8 -*-
-"""db.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""db.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape as xml_escape
-from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
+import sqlite3
+import json
+from .config import get_db_path
 from .validation import norm_model
-
-
 def db():
-    c=sqlite3.connect(DB, timeout=15); c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
+    c=sqlite3.connect(get_db_path(), timeout=15); c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
 
 def init():
     with db() as c:

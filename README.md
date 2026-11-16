@@ -11,8 +11,8 @@
 ### 从 GitHub 获取（推荐）
 
 ```bash
-git clone https://github.com/<你的用户名>/<仓库名>.git
-cd <仓库名>
+git clone https://github.com/binary0315/idc-asset-manager.git
+cd idc-asset-manager
 python app.py
 ```
 

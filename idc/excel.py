@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-"""excel.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""excel.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
+import secrets
+import time
+import zipfile
+import io
+import posixpath
+import re
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
+from .config import CALC_FIELDS, FIELD_LABELS, FIELD_LIMITS, GB_SPECS, HEADER_ALIASES, HEADER_SCAN_ROWS, IGNORED_CALC_HEADERS, IMPORT_LIMIT, IMPORT_ROW_LIMIT, IMPORT_TOKEN_MAX, ITEM_FIELDS, MOVEMENT_FIELDS, MOVEMENT_HEADERS, MOVEMENT_LABELS, SERVER_FIELD_LIMITS
+from .state import IMPORT_TOKENS, MOVEMENT_IMPORT_TOKENS, SERVER_COMPONENT_IMPORT_TOKENS, SERVER_IMPORT_TOKENS
 from .db import db
-from .validation import (norm_header, norm_model, clean_text, parse_planned, parse_qty, normalize_category, validate_server_fields)
-
-
+from .validation import norm_header, norm_model, clean_text, parse_planned, parse_qty, normalize_category, validate_server_fields
 def prune_import_tokens(now=None):
     now=now or int(time.time())
     for store in (IMPORT_TOKENS,MOVEMENT_IMPORT_TOKENS,SERVER_IMPORT_TOKENS,SERVER_COMPONENT_IMPORT_TOKENS):

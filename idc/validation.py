@@ -1,17 +1,10 @@
 # -*- coding: utf-8 -*-
-"""validation.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""validation.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape as xml_escape
-from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
-
-
+import re
+import unicodedata
+import math
+from .config import MAX_QTY, FIELD_LABELS, FIELD_LIMITS, ITEM_FIELDS, SERVER_FIELD_LIMITS
 def norm_header(value):
     return ''.join(ch.lower() for ch in str(value or '').strip() if ch.isalnum() or '\u3400' <= ch <= '\u9fff')
 

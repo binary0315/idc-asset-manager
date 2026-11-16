@@ -1,16 +1,7 @@
 # -*- coding: utf-8 -*-
-"""state.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""state.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape as xml_escape
-from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
-
+import threading
 IMPORT_TOKENS = {}
 MOVEMENT_IMPORT_TOKENS = {}
 SERVER_IMPORT_TOKENS = {}

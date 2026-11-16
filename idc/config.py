@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
-"""config.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""config.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape as xml_escape
-from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
-
+import os
 ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / 'idc_inventory.sqlite3'
+def get_db_path():
+    """统一数据库路径来源：优先 IDC_DB 环境变量，便于测试隔离。"""
+    return Path(os.environ.get('IDC_DB') or (ROOT / 'idc_inventory.sqlite3'))
+
+
+DB = get_db_path()
 HOST = os.environ.get('IDC_HOST', '127.0.0.1')
 PORT = int(os.environ.get('IDC_PORT', '8002'))
 SESSION_SECONDS = 12 * 60 * 60

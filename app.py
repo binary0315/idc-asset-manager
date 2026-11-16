@@ -11,8 +11,41 @@ import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 from datetime import date, datetime, timedelta
 
-from idc.config import *  # noqa: F401,F403
-from idc.state import *  # noqa: F401,F403
+from idc.config import (
+    ARCHIVED_SERVER_ID,
+    CALC_FIELDS,
+    FIELD_LIMITS,
+    FRAME_OPTIONS,
+    GB_SPECS,
+    HEADER_SCAN_ROWS,
+    HOST,
+    IDEMPOTENCY_AUTO_BUCKET,
+    IDEMPOTENCY_TTL,
+    IDEMPOTENT_AUTO_POST,
+    IMPORT_LIMIT,
+    IMPORT_ROW_LIMIT,
+    ITEM_FIELDS,
+    LOGIN_BASE_LOCK,
+    LOGIN_MAX_FAILS,
+    MATERIAL_SPARE_STATUSES,
+    MAX_QTY,
+    MOVEMENT_FIELDS,
+    PORT,
+    ROOT,
+    SERVER_FIELDS,
+    SERVER_FIELD_LIMITS,
+    SERVER_SPARE_STATUSES,
+    SESSION_SECONDS,
+    SPARE_NOTES_LIMIT,
+    get_db_path,
+    DB,
+)
+from idc.state import (
+    IMPORT_TOKENS,
+    MOVEMENT_IMPORT_TOKENS,
+    SERVER_COMPONENT_IMPORT_TOKENS,
+    SERVER_IMPORT_TOKENS,
+)
 from idc.db import db, init
 from idc.crypto import (pw_hash, json_bytes, validate_username, verify_credentials,
                         login_block_seconds, login_record_fail, login_clear,
@@ -56,9 +89,9 @@ class Handler(BaseHTTPRequestHandler):
         self.close_connection=True
         try:self.send(code,{'error':message or '请求无法处理'})
         except Exception:pass
-    def send(self,status,obj=None,headers=None,content_type='application/json; charset=utf-8'):
+    def send(self,status,obj=None,headers=None,content_type='application/json; charset=utf-8',cache='no-store'):
         body=obj if isinstance(obj,bytes) else json_bytes(obj or {})
-        self.send_response(status); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Cache-Control','no-store')
+        self.send_response(status); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Cache-Control',cache)
         # 单文件前端含内联 script/style 与 onclick，CSP 必须允许 inline；frame-ancestors 用 'self' 以兼容内置预览面板。
         ancestors = " frame-ancestors 'self';" if FRAME_OPTIONS else ''
         self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; form-action 'self';" + ancestors + " base-uri 'self'; object-src 'none'")
@@ -70,7 +103,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('X-Idempotency-Replay','1')
         if getattr(self,'_idem_key',None) and getattr(self,'_idem_result',None) is None:
             self._idem_result=(status,body)
-        self.end_headers(); self.wfile.write(body)
+        self.end_headers()
+        if self.command!='HEAD': self.wfile.write(body)
+    def do_HEAD(self):
+        """HEAD 与 GET 同路径同响应头，但不写 body（供健康检查/代理探测）。"""
+        return self.do_GET()
     def body(self):
         if getattr(self,'_body_done',False):
             if self._body_error:raise ValueError(self._body_error)
@@ -145,17 +182,33 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         p=urllib.parse.urlparse(self.path).path
         if p=='/':
-            try: body=(ROOT/'index.html').read_bytes()
+            try:
+                body=(ROOT/'index.html').read_bytes()
+                # 静态资源版本号跟随文件修改时间：改动后浏览器自动失效缓存，
+                # 磁盘上的 index.html 保持无版本号引用（便于离线读取/测试）。
+                try:
+                    ver=max(int((ROOT/'static'/'app.css').stat().st_mtime),
+                            int((ROOT/'static'/'app.js').stat().st_mtime))
+                    if b'/static/app.css?v=' not in body:
+                        body=body.replace(b'/static/app.css',
+                                          ('/static/app.css?v=%d' % ver).encode())
+                        body=body.replace(b'/static/app.js',
+                                          ('/static/app.js?v=%d' % ver).encode())
+                except OSError: pass
             except OSError: return self.send(500,{'error':'页面文件缺失'})
             return self.send(200,body,content_type='text/html; charset=utf-8')
         if p.startswith('/static/'):
             # 静态资源：只允许 app.css / app.js，防路径穿越
             name=p[len('/static/'):]
             if name not in ('app.css','app.js'):return self.send(404,{'error':'资源不存在'})
-            try: body=(ROOT/'static'/name).read_bytes()
+            fp=ROOT/'static'/name
+            try:
+                body=fp.read_bytes(); etag='"'+str(int(fp.stat().st_mtime))+'"'
             except OSError: return self.send(404,{'error':'资源不存在'})
             ctype='text/css; charset=utf-8' if name.endswith('.css') else 'application/javascript; charset=utf-8'
-            return self.send(200,body,content_type=ctype)
+            if self.headers.get('If-None-Match')==etag:
+                return self.send(304,b'',headers={'ETag':etag},content_type=ctype,cache='public, max-age=3600')
+            return self.send(200,body,headers={'ETag':etag},content_type=ctype,cache='public, max-age=3600')
         if p=='/api/export/items.xlsx':
             u=self.require('can_view',False)
             if not u:return

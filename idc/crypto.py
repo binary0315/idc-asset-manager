@@ -1,18 +1,13 @@
 # -*- coding: utf-8 -*-
-"""crypto.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""crypto.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape as xml_escape
-from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
+import json
+import hashlib
+import hmac
+import time
+from .config import LOGIN_WINDOW, LOGIN_MAX_FAILS, LOGIN_BASE_LOCK, LOGIN_MAX_LOCK
 from .db import db
-
-
+from .state import LOGIN_FAILS, LOGIN_LOCK
 def pw_hash(password,salt): return hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,310000)
 
 def json_bytes(obj): return json.dumps(obj,ensure_ascii=False).encode('utf-8')

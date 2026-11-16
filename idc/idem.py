@@ -1,18 +1,11 @@
 # -*- coding: utf-8 -*-
-"""idem.py：由 app.py 按职责拆分而来，行为保持一致。"""
+"""idem.py：按职责拆分，显式依赖，无自导入/循环。"""
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-import sqlite3, json, secrets, hashlib, hmac, os, time, urllib.parse, mimetypes, zipfile, io, posixpath, re, uuid, unicodedata, threading, math
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape as xml_escape
-from datetime import date, datetime, timedelta
-from .config import *
-from .state import *
-
+import sqlite3
+import json
+import time
+from .config import IDEMPOTENCY_TTL
 from .db import db
-
-
 def idem_begin(key, user_id, method_path, req_hash, durable):
     """返回 None 表示可以执行；返回 (status, obj) 表示应直接回放/拒绝。
     所有关键写请求都持久化首次结果：显式 UUID 跨时间严格幂等；
