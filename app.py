@@ -983,6 +983,15 @@ def json_bytes(obj): return json.dumps(obj,ensure_ascii=False).encode('utf-8')
 DUMMY_SALT = b'IDC_TIMING_EQUALIZER_'[:16]
 DUMMY_HASH = pw_hash('__timing_equalizer__', DUMMY_SALT)
 
+def validate_username(name):
+    """用户名统一 3–40 字符，拒绝控制字符（调用方先 strip）。"""
+    if len(name)<3 or len(name)>40:
+        raise ValueError('用户名需为 3 到 40 个字符')
+    if any(ord(ch)<32 or ord(ch)==127 for ch in name):
+        raise ValueError('用户名不能包含控制字符')
+    return name
+
+
 def verify_credentials(username, password):
     with db() as c:
         u=c.execute('SELECT * FROM users WHERE username=? AND active=1',(username,)).fetchone()
@@ -1214,7 +1223,10 @@ class Handler(BaseHTTPRequestHandler):
         无键时仅对 /api/movements 做短时并发兜底，并在回放响应加标记头。"""
         if method not in ('POST','PATCH','DELETE'):return False
         raw=self.headers.get('X-Idempotency-Key','').strip()
-        valid_key=bool(raw) and bool(re.fullmatch(r'[A-Za-z0-9._:-]{8,128}',raw))
+        if raw and not re.fullmatch(r'[A-Za-z0-9._:-]{8,128}',raw):
+            self.send(400,{'error':'X-Idempotency-Key 格式无效：需为 8 到 128 位字母、数字、点、下划线、冒号或连字符'})
+            return True
+        valid_key=bool(raw)
         # 认证端点、预览/重映射（二进制或只读）不参与幂等
         if valid_key:
             if p in ('/api/login','/api/setup','/api/logout') or 'preview' in p or 'remap' in p:return False
@@ -1809,7 +1821,9 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:return self.send(400,{'error':'无法读取提交内容'})
         if p=='/api/setup':
             username=str(d.get('username','')).strip(); password=str(d.get('password',''))
-            if len(username)<3 or len(username)>40 or len(password)<12:return self.send(400,{'error':'用户名至少 3 位，管理员密码至少 12 位'})
+            try:validate_username(username)
+            except ValueError as e:return self.send(400,{'error':str(e)})
+            if len(password)<12:return self.send(400,{'error':'管理员密码至少 12 位'})
             salt=secrets.token_bytes(16); hashed=pw_hash(password,salt)
             # 独占写事务 + 条件插入 + 检查受影响行数：并发初始化只允许一次成功。
             c=db()
@@ -1904,7 +1918,9 @@ class Handler(BaseHTTPRequestHandler):
             if not u:return
             if not u['is_admin']:return self.send(403,{'error':'仅管理员可创建账号'})
             username=str(d.get('username','')).strip(); password=str(d.get('password',''))
-            if len(username)<3 or len(password)<12:return self.send(400,{'error':'用户名至少 3 位，新账号密码至少 12 位'})
+            try:validate_username(username)
+            except ValueError as e:return self.send(400,{'error':str(e)})
+            if len(password)<12:return self.send(400,{'error':'新账号密码至少 12 位'})
             salt=secrets.token_bytes(16)
             try:
                 with db() as c:c.execute('INSERT INTO users(username,salt,pw_hash,is_admin,can_view,can_edit) VALUES(?,?,?,0,?,?)',(username,salt,pw_hash(password,salt),int(bool(d.get('can_view')) or bool(d.get('can_edit'))),int(bool(d.get('can_edit')))))

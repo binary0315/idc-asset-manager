@@ -531,24 +531,32 @@ window.importPage=0;window.currentImportData=null;window.itemImportPreviewRows=[
 async function api(url,opts={}){
   opts.headers={'Content-Type':'application/json',...(opts.headers||{})};
   if(csrf&&opts.method&&opts.method!=='GET')opts.headers['X-CSRF-Token']=csrf;
-  // 每个写动作生成唯一幂等键：同一动作在途期间复用（防双击/网络重试），
-  // 请求结束后释放，用户主动的连续两次相同提交仍是两个动作。
-  let _idemSig=null;
+  // 幂等键代表「同一个动作」：结果未确定时（网络异常/5xx）必须保留，
+  // 下一次相同提交继续复用；只有明确成功或业务 4xx 才释放。
+  let _idemSig=null,_settled=false;
   if(opts.method&&opts.method!=='GET'&&!opts.headers['X-Idempotency-Key']){
     const sig=(opts.method||'POST')+' '+url+' '+(opts.body||'');
     window._idemPending=window._idemPending||{};
-    const prev=window._idemPending[sig];
+    let prev=window._idemPending[sig];
+    if(prev&&Date.now()-(prev.at||0)>300000)prev=null; // 5 分钟后视为过期
     const k=(prev&&prev.pending)?prev.k:((window.crypto&&crypto.randomUUID)?crypto.randomUUID():('wb-'+Date.now()+'-'+Math.random().toString(36).slice(2)));
-    window._idemPending[sig]={k,pending:true};
+    window._idemPending[sig]={k,pending:true,at:Date.now()};
     opts.headers['X-Idempotency-Key']=k;
     _idemSig=sig;
   }
   try{
     let r=await fetch(url,opts),d=await r.json().catch(()=>({}));
-    if(!r.ok){let e=Error(d.error||'请求失败');e.data=d;throw e}
+    if(!r.ok){
+      if(r.status>=400&&r.status<500)_settled=true; // 业务已明确拒绝
+      let e=Error(d.error||'请求失败');e.data=d;e.status=r.status;throw e
+    }
+    _settled=true;
     return d;
   }finally{
-    if(_idemSig&&window._idemPending[_idemSig])window._idemPending[_idemSig].pending=false;
+    if(_idemSig&&window._idemPending[_idemSig]){
+      if(_settled)delete window._idemPending[_idemSig];
+      else window._idemPending[_idemSig].pending=true; // 结果未知：保留键供重试
+    }
   }
 }
 
@@ -1231,6 +1239,7 @@ function pvDelete(which,kind,i){
   const c=pvCfg(which,kind);c.collect();
   const rows=window[c.data]||[],start=(window[c.page]||0)*c.size,at=start+Number(i);
   if(!(at>=0&&at<rows.length))return;
+  rows.forEach((r,i)=>{if(typeof r._pvSeq!=='number')r._pvSeq=i});
   const key=pvStateKey(which,kind);
   (window[key]||(window[key]=[])).push({pos:at,row:rows[at]});
   rows.splice(at,1);
@@ -1242,7 +1251,10 @@ function pvRestore(which,kind){
   const c=pvCfg(which,kind);c.collect();
   const key=pvStateKey(which,kind),list=(window[key]||[]).slice();
   const rows=window[c.data]||(window[c.data]=[]);
-  list.sort((a,b)=>a.pos-b.pos).forEach(x=>rows.splice(Math.min(x.pos,rows.length),0,x.row));
+  const all=rows.concat(list.map(x=>x.row));
+  all.forEach((r,i)=>{if(typeof r._pvSeq!=='number')r._pvSeq=i});
+  all.sort((a,b)=>a._pvSeq-b._pvSeq);
+  window[c.data]=all;
   window[key]=[];c.render();pvUpdateBar(which,kind);
 }
 function pvUpdateBar(which,kind){
