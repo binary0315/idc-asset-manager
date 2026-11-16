@@ -418,10 +418,17 @@ tbody tr:hover{background:#f6fafb}
 }
 
 </style></head><body><main id="login" class="card login hidden"><h2 id="authTitle">登录 IDC资产管理</h2><div id="setupHint" class="hint hidden">首次使用请创建管理员。管理员密码至少 12 位，请妥善保管。</div><form id="authForm"><div class="field"><label>管理员/协管员账号</label><input name="username" required minlength="3" autocomplete="username"></div><div class="field" style="margin-top:12px"><label>密码</label><input name="password" required type="password" minlength="12" autocomplete="new-password"></div><button id="authSubmit" style="margin-top:14px">登录</button></form><div id="authMsg" class="status"></div></main>
+<div id="bootError" class="hidden" style="max-width:680px;margin:72px auto;padding:24px">
+  <div class="card"><h2>无法连接服务</h2>
+    <p id="bootErrorMsg" class="hint"></p>
+    <p class="hint">这不是账号或密码问题。请确认服务已启动、网络正常后重试。</p>
+    <button type="button" onclick="start()">重试连接</button>
+  </div>
+</div>
 <div id="app" class="hidden"><header class="top"><div class="brand"><span class="brand-mark" aria-hidden="true"></span><h1>IDC资产管理</h1></div><span class="module-label">物料与 GB300 服务器</span><div class="user"><span id="who"></span><button class="secondary" onclick="logout()">退出</button></div></header><div class="wrap"><div class="tabs"><button class="active" data-tab="items">物料台账</button><button data-tab="movements">库存变动明细</button><button data-tab="servers">GB300机柜视图</button><button data-tab="spares">备件管理</button><button id="usersTab" data-tab="users" class="hidden">账号权限</button><button id="recycleTab" data-tab="recycle" class="hidden">回收站 / 操作日志</button></div>
 <section id="items" class="pane"><div id="importCard" class="card hidden"><h2>Excel 批量导入物料</h2><p class="hint">上传 .xlsx 文件。系统自动扫描前 30 行猜表头；表头行或字段对不上时，可在预览区手动改「表头所在行」和每一列对应的字段，重新校验后再导入。导入不会写入库存变动明细。</p><form id="importForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><div class="field"><label>导入模式</label><select name="import_mode"><option value="create">新增物料（型号必须不存在）</option><option value="update">按型号更新台账字段</option></select></div><div class="field"><label>整批默认类别（表内没有类别列时使用）</label><select name="default_category"><option value="">请先在表内提供类别，或选择默认类别</option><option value="optical">光模块</option><option value="cable">线缆</option></select></div><button>识别表头并预览</button></form><div id="importMsg" class="status"></div><div id="importPreview"></div></div><div id="itemFormCard" class="card hidden"><h2>新增物料</h2><form id="itemForm" class="row"><div class="field"><label>类别 *</label><select name="category"><option>光模块</option><option>线缆</option></select></div><div class="field"><label>型号 *</label><input name="model" required></div><div class="field" style="flex:2"><label>名称/规格 *</label><input name="description" required></div><div class="field"><label>供应商/品牌</label><input name="supplier"></div><div class="field" style="max-width:110px"><label>计划数量</label><input name="planned" type="number" min="0" value="0"></div><div class="field"><label>存放位置</label><input name="location"></div><div class="field"><label>负责人</label><input name="owner"></div><div class="field" style="flex:2"><label>备注</label><input name="notes"></div><button>保存物料</button></form><div class="status" id="itemMsg"></div><p class="hint">当前只管理光模块与线缆；型号是唯一标识，需保持唯一，库存数量来自库存变动明细。</p></div><div id="emptyLedgerHint" class="card hidden"><b>台账当前为空</b><p class="hint">被删除的物料连同库存变动明细、坏件 SN 一起保存在「回收站 / 操作日志」中，可以查看删除前快照并原样还原。</p><button type="button" onclick="document.querySelector('[data-tab=recycle]').click()">打开回收站</button></div><div class="card"><div class="toolbar"><h2>物料台账</h2><button class="secondary" onclick="location.href='/api/export/items.xlsx'">导出 Excel</button><select id="categoryFilter"><option value="">全部类别</option><option>光模块</option><option>线缆</option></select><input id="itemSearch" placeholder="搜索型号、规格、供应商、位置"></div><div class="tablewrap"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>供应商/品牌</th><th>计划</th><th>累计入库</th><th>领用/安装</th><th>报废</th><th>可用库存</th><th>未到</th><th>位置</th><th>负责人</th><th>备注</th><th id="itemActionHeader">操作</th></tr></thead><tbody id="itemsBody"></tbody></table></div></div></section>
 <section id="movements" class="pane hidden"><div id="movementImportCard" class="card hidden"><h2>Excel 批量导入入库明细</h2><p class="hint">仅导入入库。必需字段只有「型号」和「入库数量」两个，类别自动按型号从台账带出。表头行或列名对不上时，可在预览区手动改「表头所在行」和每列对应的字段，重新校验后再导入；数量列不必叫「入库数量」。选填列：日期、类别、业务类型、位置/去向、负责人、备注。不会新增或修改台账记录。</p><form id="movementImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="movementImportMsg" class="status"></div><div id="movementImportPreview"></div></div><div id="moveFormCard" class="card hidden"><h2>登记库存变动</h2><form id="moveForm" class="row"><div class="field"><label>日期 *</label><input name="moved_at" type="date" required></div><div class="field"><label>业务类型 *</label><select name="kind"><option>入库</option><option>领用/安装</option><option>报废</option></select></div><div class="field" style="flex:2"><label>类别 *</label><select name="category" id="moveCategory" required><option>光模块</option><option>线缆</option></select></div><div class="field" style="flex:2"><label>型号 *</label><select name="model" id="moveModel" required></select></div><div class="field"><label>数量 *</label><input name="qty" type="number" min="1" step="1" required></div><div class="field"><label id="locationLabel">入库位置/去向（选填）</label><input name="location"></div><div class="field"><label>负责人（选填）</label><input name="owner"></div><div class="field" style="flex:2"><label>备注（选填）</label><input name="notes"></div><button>提交明细</button></form><div class="status" id="moveMsg"></div></div><div class="card"><div class="toolbar"><h2>库存变动明细（最近 1000 条）</h2><button class="secondary" onclick="location.href='/api/export/movements.xlsx'">导出 Excel</button></div><div class="tablewrap"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th id="movementActionHeader">操作</th></tr></thead><tbody id="movesBody"></tbody></table></div></div></section>
-<section id="servers" class="pane hidden"><div id="serverImportCard" class="card hidden"><h2>Excel 批量导入 GB300 服务器</h2><p class="hint">上传后可在预览里修改「表头所在行」和每一列对应的字段，列名不标准也不用回去改 Excel；系统扫描前 30 个非空行。必需字段：机房/房间、机柜位置、SN。预览数据可在线修改，重复 SN 或数据不合法时整批不会导入；未识别的列会忽略。</p><form id="serverImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverImportMsg" class="status"></div><div id="serverImportPreview"></div></div><div id="serverComponentImportCard" class="card hidden"><h2>Excel 批量导入 GB300 46U 部件</h2><p class="hint">上传后可在预览里修改「表头所在行」和每一列对应的字段，列名不标准也不用回去改 Excel；系统扫描前 30 个非空行。必需字段只有 SN、NODE_SN、NODE / U 位、KP_NAME；BMC_MAC 为可选（列可省略、值可为空）。NODE 必须是 1–46 的整数，每个 SN 预期 37 个部件；确认后会替换文件中这些 SN 的部件清单，位置仍按 SN 从服务器清单关联。</p><form id="serverComponentImportForm" class="row"><div class="field" style="flex:2"><label>部件明细 Excel（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverComponentImportMsg" class="status"></div><div id="serverComponentImportPreview"></div></div><div class="card"><div class="toolbar"><div><h2>机房设备位置</h2><p class="hint">先选择机房进入内部布局。点击机柜可查看 48U 设备位置及 GB300 部件详情。</p></div><input id="serverSearch" placeholder="搜索机房、机柜位置或 SN"></div><div id="serverStats" class="server-stats"></div><div id="serverOverview" class="room-overview"></div><div id="serverInterior" class="hidden"><div class="room-navigation"><button id="serverBackButton" class="secondary">← 返回机房总览</button><div><h3 id="serverRoomTitle"></h3><p class="hint" id="serverRoomSummary"></p></div></div><div id="serverRooms"></div></div></div><div id="serverAssetsCard" class="card hidden"><div class="toolbar"><h2 id="serverAssetsTitle">服务器清单</h2><span class="hint">按单台服务器记录维护</span></div><div class="tablewrap"><table><thead><tr><th>机房/房间</th><th>机柜位置</th><th>SN</th><th class="serverActionHeader">操作</th></tr></thead><tbody id="serverAssetsBody"></tbody></table></div></div><dialog id="rackDialog" class="rack-dialog"><form method="dialog"><button class="secondary dialog-close" aria-label="关闭">关闭</button></form><h2 id="rackDialogTitle"></h2><p class="hint" id="rackDialogSummary"></p><div id="rackDialogBody"></div></dialog><dialog id="componentEditDialog" class="rack-dialog component-edit-dialog"><form id="componentEditForm"><h2 id="componentEditTitle">编辑 / 更换部件</h2><p class="hint">U 位及 KP_NAME 固定，仅更新 NODE_SN。选择“部件更换”会把所有类型部件的旧 SN 自动登记为备件；信息修正用于纠正录入错误。系统记录登录账号，责任人填写实际操作人。</p><div class="row"><div class="field"><label>当前 U 位</label><input id="componentEditU" disabled></div><div class="field"><label>KP_NAME（固定）</label><input id="componentEditKp" disabled></div><div class="field"><label>NODE_SN *</label><input name="node_sn" required></div><div class="field"><label>操作类型 *</label><select name="action" id="componentEditAction"><option>部件更换</option><option>信息修正</option></select></div><div class="field"><label>实际操作人/责任人 *</label><input name="responsible" required></div></div><div id="componentEditMsg" class="status"></div><div class="server-actions"><button type="submit">保存</button><button type="button" class="secondary" onclick="document.getElementById('componentEditDialog').close()">取消</button></div></form></dialog></section><section id="spares" class="pane hidden">
+<section id="servers" class="pane hidden"><div id="serverImportCard" class="card hidden"><h2>Excel 批量导入 GB300 服务器</h2><p class="hint">上传后可在预览里修改「表头所在行」和每一列对应的字段，列名不标准也不用回去改 Excel；系统扫描前 30 个非空行。必需字段：机房/房间、机柜位置、SN。预览数据可在线修改，重复 SN 或数据不合法时整批不会导入；未识别的列会忽略。</p><form id="serverImportForm" class="row"><div class="field" style="flex:2"><label>Excel 文件（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverImportMsg" class="status"></div><div id="serverImportPreview"></div></div><div id="serverComponentImportCard" class="card hidden"><h2>Excel 批量导入 GB300 46U 部件</h2><p class="hint">上传后可在预览里修改「表头所在行」和每一列对应的字段，列名不标准也不用回去改 Excel；系统扫描前 30 个非空行。必需字段只有 SN、NODE_SN、NODE / U 位、KP_NAME；BMC_MAC 为可选（列可省略、值可为空）。NODE 必须是 1–46 的整数，每个 SN 预期 37 个部件；确认后会替换文件中这些 SN 的部件清单，位置仍按 SN 从服务器清单关联。</p><form id="serverComponentImportForm" class="row"><div class="field" style="flex:2"><label>部件明细 Excel（.xlsx）*</label><input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div><button>识别表头并预览</button></form><div id="serverComponentImportMsg" class="status"></div><div id="serverComponentImportPreview"></div></div><div class="card"><div class="toolbar"><div><h2>机房设备位置</h2><p class="hint">先选择机房进入内部布局。点击机柜可查看 46U 设备位置及 GB300 部件详情。</p></div><input id="serverSearch" placeholder="搜索机房、机柜位置或 SN"></div><div id="serverStats" class="server-stats"></div><div id="serverOverview" class="room-overview"></div><div id="serverInterior" class="hidden"><div class="room-navigation"><button id="serverBackButton" class="secondary">← 返回机房总览</button><div><h3 id="serverRoomTitle"></h3><p class="hint" id="serverRoomSummary"></p></div></div><div id="serverRooms"></div></div></div><div id="serverAssetsCard" class="card hidden"><div class="toolbar"><h2 id="serverAssetsTitle">服务器清单</h2><span class="hint">按单台服务器记录维护</span></div><div class="tablewrap"><table><thead><tr><th>机房/房间</th><th>机柜位置</th><th>SN</th><th class="serverActionHeader">操作</th></tr></thead><tbody id="serverAssetsBody"></tbody></table></div></div><dialog id="rackDialog" class="rack-dialog"><form method="dialog"><button class="secondary dialog-close" aria-label="关闭">关闭</button></form><h2 id="rackDialogTitle"></h2><p class="hint" id="rackDialogSummary"></p><div id="rackDialogBody"></div></dialog><dialog id="componentEditDialog" class="rack-dialog component-edit-dialog"><form id="componentEditForm"><h2 id="componentEditTitle">编辑 / 更换部件</h2><p class="hint">U 位及 KP_NAME 固定，仅更新 NODE_SN。选择“部件更换”会把所有类型部件的旧 SN 自动登记为备件；信息修正用于纠正录入错误。系统记录登录账号，责任人填写实际操作人。</p><div class="row"><div class="field"><label>当前 U 位</label><input id="componentEditU" disabled></div><div class="field"><label>KP_NAME（固定）</label><input id="componentEditKp" disabled></div><div class="field"><label>NODE_SN *</label><input name="node_sn" required></div><div class="field"><label>操作类型 *</label><select name="action" id="componentEditAction"><option>部件更换</option><option>信息修正</option></select></div><div class="field"><label>实际操作人/责任人 *</label><input name="responsible" required></div></div><div id="componentEditMsg" class="status"></div><div class="server-actions"><button type="submit">保存</button><button type="button" class="secondary" onclick="document.getElementById('componentEditDialog').close()">取消</button></div></form></dialog></section><section id="spares" class="pane hidden">
 <div class="card"><div class="toolbar"><div><h2>光模块 / 线缆库存与坏件</h2><p class="hint">台账库存按库存变动明细计算。登记“报废”后，每件坏件会自动进入下方待处理列表；逐件填写 SN 并选择后续状态。</p></div><input id="spareMaterialSearch" placeholder="搜索类别、型号或规格"></div><div id="spareMaterialStats" class="server-stats"></div><div class="tablewrap"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>可用库存</th><th>累计报废坏件</th></tr></thead><tbody id="spareMaterialsBody"></tbody></table></div></div>
 <div class="card"><div class="toolbar"><div><h2>光模块 / 线缆坏件处理</h2><p class="hint">每条对应库存变动明细中的一件报废品。待处理记录须补录 SN 并选择状态后保存；源明细可追溯。</p></div><select id="materialSpareFilter"><option value="">全部状态</option></select></div><div class="tablewrap"><table><thead><tr><th>来源日期</th><th>类别 / 型号</th><th>坏件序号</th><th>坏件 SN *</th><th>状态 *</th><th>原位置 / 负责人</th><th>处理负责人</th><th>备注</th><th>保存 / 历史</th></tr></thead><tbody id="materialSparesBody"></tbody></table></div></div>
 <div class="card"><div class="toolbar"><div><h2>服务器更换部件备件</h2><p class="hint">机柜 U 位中任意有 SN 的部件，执行“部件更换”后，旧 SN 都会自动登记为备件。信息修正不会生成备件。</p></div><select id="serverSpareFilter"><option value="">全部状态</option></select></div><div class="server-stats" id="serverSpareStats"></div><div class="tablewrap"><table><thead><tr><th>来源位置</th><th>服务器 SN</th><th>U 位</th><th>部件类型</th><th>原部件 SN</th><th>状态</th><th>实际操作人</th><th>备注</th><th>操作 / 历史</th></tr></thead><tbody id="serverSparesBody"></tbody></table></div></div></section><section id="users" class="pane hidden"><div class="card"><h2>创建协管员</h2><form id="userForm" class="row"><div class="field"><label>账号 *</label><input name="username" required minlength="3"></div><div class="field"><label>初始密码（至少 12 位）*</label><input name="password" required minlength="12" type="password"></div><div><label class="check"><input name="can_view" type="checkbox" checked> 可查看台账和明细</label><label class="check"><input name="can_edit" type="checkbox"> 可编辑物料信息和库存明细</label></div><button>创建协管员</button></form><div id="userMsg" class="status"></div><p class="hint">管理员始终拥有全部权限。协管员权限可随时修改或停用；停用后会立即注销其会话。</p></div><div class="card"><h2>协管员权限</h2><div class="tablewrap"><table><thead><tr><th>账号</th><th>查看</th><th>编辑</th><th>状态</th><th>操作</th></tr></thead><tbody id="usersBody"></tbody></table></div></div></section>
@@ -442,7 +449,22 @@ tbody tr:hover{background:#f6fafb}
 </div></div><script>
 let me=null,csrf='',editingServerId=null,selectedServerRoom=null;const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function showAuth(setup){$('#app').classList.add('hidden');$('#login').classList.remove('hidden');$('#setupHint').classList.toggle('hidden',!setup);$('#authTitle').textContent=setup?'首次使用：创建管理员':'登录 IDC资产管理';$('#authSubmit').textContent=setup?'创建管理员':'登录';$('#authForm').dataset.setup=setup?'1':'';$('#authForm').elements.password.minLength=setup?12:1;$('#authForm').elements.password.autocomplete=setup?'new-password':'current-password'}
-async function start(){try{let status=await api('/api/status');if(status.setup_required)return showAuth(true);let r=await api('/api/me');setUser(r);await refresh()}catch(e){showAuth(false)}}
+async function start(){
+  try{
+    let status=await api('/api/status');
+    if(status.setup_required)return showAuth(true);
+    let r=await api('/api/me');setUser(r);await refresh();
+    const box=$('#bootError');if(box)box.classList.add('hidden');
+  }catch(e){
+    if(e&&e.status>=401&&e.status<500)return showAuth(false); // 明确未登录
+    const box=$('#bootError');
+    if(box){
+      $('#app').classList.add('hidden');$('#login').classList.add('hidden');
+      $('#bootErrorMsg').textContent=(e&&e.message)||'未知错误';
+      box.classList.remove('hidden');
+    }
+  }
+}
 function setUser(u){me=u;csrf=u.csrf;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#who').innerHTML=`${esc(u.username)} <span class="badge">${u.is_admin?'管理员':(u.can_edit?'协管员 · 编辑':'协管员 · 查看')}</span>`;$('#usersTab').classList.toggle('hidden',!u.is_admin);$('#recycleTab').classList.toggle('hidden',!u.is_admin);$('#itemFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#importCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#moveFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#movementImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverComponentImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);document.querySelectorAll('.serverActionHeader').forEach(el=>el.classList.toggle('hidden',!u.can_edit&&!u.is_admin));$('#itemActionHeader').classList.toggle('hidden',!u.is_admin&&!u.can_edit);$('#movementActionHeader').classList.toggle('hidden',!u.is_admin)}
 $('#authForm').onsubmit=async e=>{e.preventDefault();$('#authMsg').textContent='';let f=new FormData(e.target),payload=Object.fromEntries(f);try{let u=await api(e.target.dataset.setup?'/api/setup':'/api/login',{method:'POST',body:JSON.stringify(payload)});setUser(u);await refresh()}catch(err){$('#authMsg').textContent=err.message}};
 async function refresh(){await loadItems();await loadMoves();await loadServers();await loadSpares();if(me.is_admin)await loadUsers()}
@@ -475,7 +497,14 @@ async function activateTab(tab){document.querySelectorAll('.tabs button').forEac
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>activateTab(b));
 $('#userForm').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target);let p={username:f.get('username'),password:f.get('password'),can_view:f.has('can_view'),can_edit:f.has('can_edit')};try{await api('/api/users',{method:'POST',body:JSON.stringify(p)});e.target.reset();$('#userMsg').textContent='协管员账号已创建';await loadUsers()}catch(err){$('#userMsg').textContent=err.message}};
 async function loadUsers(){let {users}=await api('/api/users');$('#usersBody').innerHTML=users.filter(x=>!x.is_admin).map(x=>`<tr><td>${esc(x.username)}</td><td><input type="checkbox" ${x.can_view?'checked':''} data-id="${x.id}" data-key="can_view"></td><td><input type="checkbox" ${x.can_edit?'checked':''} data-id="${x.id}" data-key="can_edit"></td><td>${x.active?'启用':'停用'}</td><td><button class="secondary" data-toggle="${x.id}" data-active="${x.active?0:1}">${x.active?'停用账号':'启用账号'}</button></td></tr>`).join('');$('#usersBody').querySelectorAll('input').forEach(el=>el.onchange=async()=>{let id=el.dataset.id,other=$(`#usersBody input[data-id="${id}"][data-key="${el.dataset.key==='can_view'?'can_edit':'can_view'}"]`);try{await api('/api/users/'+id,{method:'PATCH',body:JSON.stringify({can_view:el.dataset.key==='can_view'?el.checked:other.checked,can_edit:el.dataset.key==='can_edit'?el.checked:other.checked,active:true})})}catch(e){uiToast(e.message);await loadUsers()}});$('#usersBody').querySelectorAll('button[data-toggle]').forEach(b=>b.onclick=async()=>{let id=b.dataset.toggle,view=$(`#usersBody input[data-id="${id}"][data-key="can_view"]`).checked,edit=$(`#usersBody input[data-id="${id}"][data-key="can_edit"]`).checked;try{await api('/api/users/'+id,{method:'PATCH',body:JSON.stringify({can_view:view,can_edit:edit,active:b.dataset.active==='1'})});await loadUsers()}catch(e){uiToast(e.message)}})}
-async function logout(){try{await api('/api/logout',{method:'POST',body:'{}'})}finally{csrf='';me=null;showAuth(false)}}
+async function logout(){
+  try{await api('/api/logout',{method:'POST',body:'{}'})}
+  catch(e){
+    if(e&&e.status===401){/* 会话已失效，视为已退出 */}
+    else{uiToast('退出失败，请检查网络后重试');return}
+  }
+  csrf='';me=null;showAuth(false)
+}
 
 async function loadSpares(){window.spareData=await api('/api/spares');renderSpareMaterials();renderMaterialSpares();renderServerSpares()}
 function renderSpareMaterials(){let d=window.spareData||{materials:[]},q=($('#spareMaterialSearch').value||'').trim().toLowerCase(),items=d.materials.filter(x=>`${x.category} ${x.model} ${x.description}`.toLowerCase().includes(q)),available=items.reduce((a,x)=>a+Math.max(0,x.available),0),damaged=items.reduce((a,x)=>a+x.damaged,0),pending=(d.material_spares||[]).filter(x=>x.status==='待处理').length;$('#spareMaterialStats').innerHTML=`<div class="server-stat"><b>${items.length}</b><span>种型号</span></div><div class="server-stat"><b>${available}</b><span>可用库存</span></div><div class="server-stat"><b>${damaged}</b><span>累计报废</span></div><div class="server-stat"><b>${pending}</b><span>待补SN坏件</span></div>`;$('#spareMaterialsBody').innerHTML=items.map(x=>`<tr><td>${esc(x.category)}</td><td>${esc(x.model)}</td><td>${esc(x.description)}</td><td><b>${x.available}</b></td><td>${x.damaged}</td></tr>`).join('')||'<tr><td colspan="5" class="hint">暂无库存或报废物料</td></tr>'}
@@ -529,6 +558,12 @@ const IMPORT_PAGE_SIZE=50;
 window.importPage=0;window.currentImportData=null;window.itemImportPreviewRows=[];
 
 async function api(url,opts={}){
+  let _busyBtn=null,_busyBody=false;
+  if(typeof document!=='undefined'){
+    const el=document.activeElement;
+    if(el&&el.tagName==='BUTTON'&&!el.disabled){_busyBtn=el;el.disabled=true}
+    if(document.body&&document.body.setAttribute){document.body.setAttribute('aria-busy','1');_busyBody=true}
+  }
   opts.headers={'Content-Type':'application/json',...(opts.headers||{})};
   if(csrf&&opts.method&&opts.method!=='GET')opts.headers['X-CSRF-Token']=csrf;
   // 幂等键代表「同一个动作」：结果未确定时（网络异常/5xx）必须保留，
@@ -553,6 +588,8 @@ async function api(url,opts={}){
     _settled=true;
     return d;
   }finally{
+    if(_busyBtn)_busyBtn.disabled=false;
+    if(_busyBody&&document.body.removeAttribute)document.body.removeAttribute('aria-busy');
     if(_idemSig&&window._idemPending[_idemSig]){
       if(_settled)delete window._idemPending[_idemSig];
       else window._idemPending[_idemSig].pending=true; // 结果未知：保留键供重试
@@ -641,7 +678,8 @@ function renderImportPreview(d){
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
       <div id="importMapping" class="import-mapping-grid">${colHtml}</div>
-      <p class="hint">${mode==='create'?'新增模式必需：型号、名称/规格、计划数量；类别可用整批默认值。':'更新模式必需：型号（作为匹配键，不可修改）；未提供的列保留台账现值。'}</p></div>
+      <p class="hint">${mode==='create'?'新增模式必需：型号、名称/规格；计划数量可留空（预览补填，默认 0）；类别可用整批默认值。':'更新模式必需：型号（作为匹配键，不可修改）；未提供的列保留台账现值。'}</p></div>
+    ${d.suggest_import==='movements'?`<p class="import-errors"><b>可能选错导入类型</b>：这份表含库存变动特征列。若要登记入库，请到「库存变动明细」页面重新上传同一个 Excel；当前物料台账导入不会写入这些数量。</p>`:''}
     ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
     <div class="import-section"><b>③ 预览数据（可直接修改）</b>
@@ -675,19 +713,22 @@ async function applyImportMapping(){
 }
 
 async function confirmImport(token){
-  collectVisiblePreview();
+  const _t0=typeof performance!=='undefined'&&performance.now?performance.now():Date.now(),_btn=pvBtn('#confirmImport');
+  collectVisiblePreview();pvBegin(_btn,'校验中…');
   const d=window.currentImportData||{};
   const rows=window.itemImportPreviewRows||[];
   if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
   const verb=d.mode==='update'?'按预览更新这些物料的台账字段（型号与库存数量不变）':'将预览中的物料写入物料台账';
   if(!await uiConfirm(`确认${verb}？本次不会写入库存变动明细。`))return;
   try{
+    pvBegin(_btn,'写入中…');
     const r=await api('/api/import-items',{method:'POST',body:JSON.stringify({token,rows:window.itemImportPreviewRows})});
-    $('#importMsg').textContent=d.mode==='update'?`已更新 ${r.imported} 条物料台账。`:`已导入 ${r.imported} 条物料，库存变动明细未改动。`;
+    $('#importMsg').textContent=(d.mode==='update'?`已更新 ${r.imported} 条物料台账。`:`已导入 ${r.imported} 条物料，库存变动明细未改动。`)+`（${r.imported} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
     $('#importPreview').innerHTML='';$('#importForm').reset();
     window.currentImportData=null;window.itemImportPreviewRows=[];window.pvDeleted_items=[];
     await loadItems();filterItems();
   }catch(e){$('#importMsg').textContent=e.message}
+  finally{pvEnd(_btn)}
 }
 
 $('#importForm').onsubmit=async e=>{
@@ -761,10 +802,14 @@ async function deleteItem(id){
 /* ===== 页面内确认/输入/提示：替代被内置浏览器拦截的原生弹窗 ===== */
 function uiModal(opts){
   return new Promise(resolve=>{
+    const priorFocus=(typeof document!=='undefined'&&document.activeElement)?document.activeElement:null;
     const wrap=document.createElement('div');
     wrap.className='ui-modal-backdrop';
+    wrap.setAttribute('role','dialog');wrap.setAttribute('aria-modal','true');
+    wrap.setAttribute('aria-label',opts.title||'请确认');
     wrap.innerHTML=`<div class="ui-modal"><h3>${esc(opts.title||'请确认')}</h3><p class="ui-modal-msg">${esc(opts.message||'')}</p>${opts.input?`<input id="uiModalInput" autocomplete="off" placeholder="${esc(opts.placeholder||'')}">`:''}<div class="ui-modal-error"></div><div class="ui-modal-actions"><button type="button" class="secondary" data-act="cancel">取消</button><button type="button"${opts.danger?' class="danger"':''} data-act="ok">${esc(opts.okText||'确定')}</button></div></div>`;
-    const done=v=>{document.removeEventListener('keydown',onKey);wrap.remove();resolve(v)};
+    const done=v=>{document.removeEventListener('keydown',onKey);wrap.remove();
+      if(priorFocus&&priorFocus.focus)try{priorFocus.focus()}catch(e){} resolve(v)};
     const submit=()=>{
       let val=true;
       if(opts.input){
@@ -788,13 +833,15 @@ function uiModal(opts){
     });
     document.body.appendChild(wrap);
     if(opts.input)wrap.querySelector('#uiModalInput')?.focus();
+    else wrap.querySelector('[data-act="ok"]')?.focus();
   });
 }
 function uiConfirm(message,title='请确认'){return uiModal({title,message,okText:'确定'}).then(v=>v===true)}
 function uiPrompt(message,expected,title='二次确认'){return uiModal({title,message,input:true,expected,placeholder:'完整输入：'+expected,okText:'确认删除',danger:true})}
 function uiToast(msg,type='err'){
   let t=document.getElementById('uiToast');
-  if(!t){t=document.createElement('div');t.id='uiToast';document.body.appendChild(t)}
+  if(!t){t=document.createElement('div');t.id='uiToast';t.setAttribute('role','status');
+    t.setAttribute('aria-live','polite');document.body.appendChild(t)}
   t.className='ui-toast '+(type==='ok'?'ok':'err');t.textContent=String(msg||'');
   clearTimeout(window._uiToastTimer);
   window._uiToastTimer=setTimeout(()=>t.remove(),5000);
@@ -1025,7 +1072,8 @@ async function applyMovementMapping(){
 }
 
 async function confirmMovementImport(token){
-  collectMovementVisible();
+  const _t0=typeof performance!=='undefined'&&performance.now?performance.now():Date.now(),_btn=pvBtn('#movementConfirmBtn');
+  collectMovementVisible();pvBegin(_btn,'校验中…');
   if(!token){uiToast('预览已失效，请重新上传 Excel 文件');return}
   const rows=window.movementImportPreviewRows||[];
   if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
@@ -1033,12 +1081,14 @@ async function confirmMovementImport(token){
   if(bad>=0){const msg=`第 ${bad+1} 行入库数量必须大于 0，请在预览中补填，或删除该行后再导入。`;uiToast(msg);$('#movementImportMsg').textContent=msg;return}
   if(!await uiConfirm(`确认将预览中的 ${rows.length} 条记录作为「入库」写入库存变动明细？已删除的行不会写入。`))return;
   try{
+    pvBegin(_btn,'写入中…');
     const d=await api('/api/import-movements',{method:'POST',body:JSON.stringify({token,rows:window.movementImportPreviewRows})});
-    $('#movementImportMsg').textContent=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。`;
+    $('#movementImportMsg').textContent=`已导入 ${d.imported} 条入库明细，物料台账字段未修改。（${d.imported} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
     $('#movementImportPreview').innerHTML='';$('#movementImportForm').reset();
     window.mvImportData=null;window.movementImportPreviewRows=[];window.movementImportToken=null;window.pvDeleted_movements=[];
     await loadItems();await loadMoves();
   }catch(e){$('#movementImportMsg').textContent=e.message}
+  finally{pvEnd(_btn)}
 }
 
 $('#movementImportForm').onsubmit=async e=>{
@@ -1189,17 +1239,28 @@ async function applyGbMapping(kind){
 }
 
 async function confirmGbImport(kind,token){
-  collectGbVisible(kind);
+  const _t0=typeof performance!=='undefined'&&performance.now?performance.now():Date.now(),_btn=pvBtn('#'+GB_IMPORT_CONFIG[kind].confirmId);
+  collectGbVisible(kind);pvBegin(_btn,'校验中…');
   const cfg=GB_IMPORT_CONFIG[kind],rows=window[cfg.dataKey]||[];
-  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');return}
-  if(!await uiConfirm(cfg.confirmLabel(rows.length)))return;
+  if(!rows.length){uiToast('预览中没有可导入的数据；可点「恢复已删除的行」或重新上传');pvEnd(_btn);return}
+  if(kind==='components'){
+    const by={};rows.forEach(r=>{const sn=r.server_sn||'';by[sn]=(by[sn]||0)+1});
+    const short=Object.entries(by).filter(x=>x[1]<37);
+    if(short.length){
+      const detail=short.map(x=>`${x[0]}：${x[1]} 个（少 ${37-x[1]}）`).join('\n');
+      if(!await uiConfirm(`以下服务器部件少于 37 个 U 位，确认后会按当前行数替换原清单：\n${detail}\n\n仍要继续吗？`,'部件数量不足')){pvEnd(_btn);return}
+    }
+  }
+  if(!await uiConfirm(cfg.confirmLabel(rows.length))){pvEnd(_btn);return}
   try{
+    pvBegin(_btn,'写入中…');
     const r=await api(cfg.confirmUrl,{method:'POST',body:JSON.stringify({token,rows})});
-    $('#'+cfg.msgId).textContent=cfg.success(r);
+    $('#'+cfg.msgId).textContent=cfg.success(r)+`（${rows.length} 条，耗时 ${pvSec(_t0).toFixed(1)} 秒）`;
     $('#'+cfg.boxId).innerHTML='';
     $('#'+cfg.formId).reset();window['pvDeleted_'+kind]=[];
     await cfg.after();
   }catch(e){$('#'+cfg.msgId).textContent=e.message}
+  finally{pvEnd(_btn)}
 }
 
 
@@ -1269,5 +1330,13 @@ function pvUpdateBar(which,kind){
       el.textContent=rows.length?(miss?`还有 ${miss} 行未填写入库数量（需大于 0），请在下方补填或删除不需要的行。`:'数量已填写完整，可以确认导入。'):'';}
   }
 }
+
+
+
+/* ===== 操作反馈：阶段文案与耗时 ===== */
+function pvBtn(sel){try{return $(sel)}catch(e){return null}}
+function pvBegin(btn,text){if(btn){if(btn.dataset.pvPrev===undefined)btn.dataset.pvPrev=btn.textContent;btn.textContent=text;btn.disabled=true}return btn}
+function pvEnd(btn){if(btn&&btn.dataset.pvPrev!==undefined){btn.textContent=btn.dataset.pvPrev;btn.disabled=false;delete btn.dataset.pvPrev}}
+function pvSec(t0){return ((typeof performance!=='undefined'&&performance.now?performance.now():Date.now())-t0)/1000}
 
 </script></body></html>

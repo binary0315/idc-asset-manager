@@ -269,6 +269,13 @@ def build_item_preview(batch, header_row, mapping, token, header_issues=None):
                       +'。可在下方「字段对应」中手动指定对应列，或改选表头所在行。')
     if 'planned' in missing:
         warnings.append('表格未提供「计划数量」列，预览中暂填 0；请在下方逐行填写需要的数量，或删除不需要的行后确认导入。')
+    movement_like=[str(v) for v in columns if str(v).strip()
+                   and any(norm_header(w)==norm_header(v) for w in
+                           ('入库数量','到货数量','已领用','领用/安装','领用数量','报废数量','损坏报废'))]
+    suggest_import='movements' if movement_like else ''
+    if movement_like:
+        warnings.append('检测到「'+'、'.join(movement_like[:5])+'」等库存变动特征列：这更像入库明细，而不是物料台账。'
+                        '这些列不会被写入物料台账；如选错类型，请切换到「入库明细」导入。')
     ignored_calc=[str(v) for v in columns if str(v).strip()
                   and any(norm_header(w) in norm_header(v) for w in IGNORED_CALC_HEADERS)]
     ignored_calc+= [str(columns[i]) for f,i in mapping.items()
@@ -341,6 +348,7 @@ def build_item_preview(batch, header_row, mapping, token, header_issues=None):
             'mapping':{f:(columns[i] if 0<=i<len(columns) else str(i)) for f,i in mapping.items()},
             'mapping_index':dict(mapping),'mode':mode,'rows':len(rows),
             'errors':errors,'warnings':warnings,'samples':rows[:8],'preview_rows':rows,
+            'suggest_import':suggest_import,
             'token':token if can_import else None,'edit_token':token,'can_import':can_import}
 
 def parse_item_import(data, default_category, user_id, mode='create'):
@@ -1502,6 +1510,9 @@ class Handler(BaseHTTPRequestHandler):
                     c.executemany('INSERT INTO server_components(server_sn,node_sn,node_u,kp_name,bmc_mac) VALUES(?,?,?,?,?)',[(x['server_sn'],x['node_sn'],x['node_u'],x['kp_name'],x['bmc_mac']) for x in batch['rows']])
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'部件数据存在重复 NODE_SN 或 NODE，整批未导入；请重新预览'})
+            with db() as c:
+                log_action(c,u['id'],'导入部件清单',f'{len(batch["rows"])} 条 / {len(batch["serials"])} 台',
+                           f'按 SN 替换 46U 部件清单；来源文件预览令牌已消费')
             # 校验与事务都成功后才消费令牌；失败时用同一令牌修正数据可直接重试。
             SERVER_COMPONENT_IMPORT_TOKENS.pop(token,None)
             return self.send(200,{'ok':True,'imported':len(batch['rows']),'servers':len(batch['serials'])})
@@ -1541,6 +1552,9 @@ class Handler(BaseHTTPRequestHandler):
                         c.execute('INSERT INTO servers(room,rack,sn) VALUES(?,?,?)',(server['room'],server['rack'],server['sn']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入期间发现重复 SN，整批未写入；请重新预览文件'})
+            with db() as c:
+                log_action(c,u['id'],'导入服务器',f'{len(batch["rows"])} 台',
+                           'Excel 导入服务器位置清单')
             SERVER_IMPORT_TOKENS.pop(token,None)
             return self.send(200,{'ok':True,'imported':len(batch['rows'])})
 
@@ -1742,6 +1756,9 @@ class Handler(BaseHTTPRequestHandler):
                         c.execute('INSERT INTO movements(item_id,kind,qty,moved_at,location,owner,notes,created_by) VALUES(?,?,?,?,?,?,?,?)',(item['item_id'],'入库',item['qty'],item['moved_at'],item['location'],item['owner'],item['notes'],u['id']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入未完成，请重新预览文件后重试'})
+            with db() as c:
+                log_action(c,u['id'],'导入入库明细',f'{len(batch["rows"])} 条',
+                           f'Excel 导入入库，合计 {sum(x["qty"] for x in batch["rows"])} 件')
             MOVEMENT_IMPORT_TOKENS.pop(token,None)
             return self.send(200,{'ok':True,'imported':len(batch['rows'])})
         if p=='/api/import-items':
