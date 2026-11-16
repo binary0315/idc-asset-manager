@@ -38,7 +38,6 @@ from idc.config import (
     SESSION_SECONDS,
     SPARE_NOTES_LIMIT,
     get_db_path,
-    DB,
 )
 from idc.state import (
     IMPORT_TOKENS,
@@ -91,7 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:pass
     def send(self,status,obj=None,headers=None,content_type='application/json; charset=utf-8',cache='no-store'):
         body=obj if isinstance(obj,bytes) else json_bytes(obj or {})
-        self.send_response(status); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Cache-Control',cache)
+        # RFC 7230 §3.3.2：304 不得携带与 200 不一致的 Content-Length（浏览器会误判资源为空）。
+        self.send_response(status); self.send_header('Content-Type',content_type)
+        if status!=304: self.send_header('Content-Length',str(len(body)))
+        self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Cache-Control',cache)
         # 单文件前端含内联 script/style 与 onclick，CSP 必须允许 inline；frame-ancestors 用 'self' 以兼容内置预览面板。
         ancestors = " frame-ancestors 'self';" if FRAME_OPTIONS else ''
         self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; form-action 'self';" + ancestors + " base-uri 'self'; object-src 'none'")
@@ -206,7 +208,8 @@ class Handler(BaseHTTPRequestHandler):
                 body=fp.read_bytes(); etag='"'+str(int(fp.stat().st_mtime))+'"'
             except OSError: return self.send(404,{'error':'资源不存在'})
             ctype='text/css; charset=utf-8' if name.endswith('.css') else 'application/javascript; charset=utf-8'
-            if self.headers.get('If-None-Match')==etag:
+            inm=self.headers.get('If-None-Match','')
+            if inm=='*' or inm==etag:
                 return self.send(304,b'',headers={'ETag':etag},content_type=ctype,cache='public, max-age=3600')
             return self.send(200,body,headers={'ETag':etag},content_type=ctype,cache='public, max-age=3600')
         if p=='/api/export/items.xlsx':

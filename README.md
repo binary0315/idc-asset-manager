@@ -49,6 +49,15 @@ python app.py
 - 想把自己电脑上的现有数据带到另一台机器：直接拷贝 `idc_inventory.sqlite3` 到目标机器的项目目录即可（**不要用 GitHub 传这个文件**）。
 - 生产使用请定期备份该数据库文件。
 
+**用环境变量隔离数据库**：设置 `IDC_DB` 可把数据库指向任意路径（父目录不存在会自动创建），用于测试或同时运行多套实例而互不干扰：
+
+```powershell
+$env:IDC_DB = "C:\idc-test\isolated.sqlite3"
+python app.py
+```
+
+不设置时默认使用项目目录下的 `idc_inventory.sqlite3`。数据库路径统一由环境变量决定，不再支持在代码里改 `app.DB`（该符号已移除，读取会直接报错）。
+
 ---
 
 ## 权限
@@ -123,9 +132,10 @@ python app.py
 | `static/app.js` | 前端全部交互逻辑 |
 | `run_lan.py` | 一键以 `0.0.0.0:8002` 启动，供局域网访问 |
 | `部署说明.txt` | 面向 Windows 内网部署的补充说明 |
+| `LICENSE` | MIT 开源许可 |
 | `idc_inventory.sqlite3` | 运行时自动生成，**不进仓库** |
 
-> 从 `v1.0.1` 起前后端按职责拆分，但仍**零第三方依赖**：部署时需保留 `app.py`、`idc/`、`index.html`、`static/` 四个部分，`python app.py` 的启动方式不变。
+> 前后端已按职责拆分，但仍**零第三方依赖**：部署时需保留 `app.py`、`idc/`、`index.html`、`static/` 四个部分，`python app.py` 的启动方式不变。
 
 ---
 
@@ -140,6 +150,7 @@ python app.py
 - 四类 Excel 导入（物料台账、入库明细、GB300 服务器、46U 部件）成功后都会写入批次操作日志（条数与关键口径），便于追溯。请求期间按钮进入禁用并显示「校验中 / 写入中」，成功后提示行数与耗时。
 - 幂等回放响应带 `X-Idempotency-Replay: 1`，客户端可区分「实际执行」与「回放首次结果」；首次响应无此头。口径见 `/api/config` 的 `idempotency`。
 - 前端交互集中在 `static/app.js`，函数定义唯一（无同名覆盖）；修改或追加功能时请勿再声明同名函数。样式改动放 `static/app.css`。
-- 响应统一带 CSP、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` 与 `nosniff`。因前端是单文件（内联样式与脚本），CSP 放行 `'unsafe-inline'`；经 HTTPS 反向代理部署时会话 Cookie 自动补充 `Secure`。若需嵌入跨源 iframe，可设环境变量 `IDC_FRAME_OPTIONS=` 放开帧限制。
+- 响应统一带 CSP、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` 与 `nosniff`。页面有少量内联事件属性（`onclick`），CSP 放行 `'unsafe-inline'`；经 HTTPS 反向代理部署时会话 Cookie 自动补充 `Secure`。若需嵌入跨源 iframe，可设环境变量 `IDC_FRAME_OPTIONS=` 放开帧限制。
+- 静态资源 `app.css` / `app.js` 返回 `ETag` 与 `max-age=3600`，首页按文件修改时间自动追加 `?v=` 版本号；`HEAD` 请求返回与 `GET` 相同的响应头但不带正文，`304` 不携带 `Content-Length`（避免代理误判资源为空）。
 - 数量上限、字段长度等口径统一由 `/api/config` 公布，后端所有写入路径共用同一套严格校验。
 - 本应用适用于**可信内网**。对外开放前请自行评估认证、传输加密与访问控制。

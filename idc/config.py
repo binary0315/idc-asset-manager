@@ -9,7 +9,6 @@ def get_db_path():
     return Path(os.environ.get('IDC_DB') or (ROOT / 'idc_inventory.sqlite3'))
 
 
-DB = get_db_path()
 HOST = os.environ.get('IDC_HOST', '127.0.0.1')
 PORT = int(os.environ.get('IDC_PORT', '8002'))
 SESSION_SECONDS = 12 * 60 * 60

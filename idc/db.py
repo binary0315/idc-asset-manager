@@ -6,7 +6,14 @@ import json
 from .config import get_db_path
 from .validation import norm_model
 def db():
-    c=sqlite3.connect(get_db_path(), timeout=15); c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
+    p=get_db_path()
+    try:
+        # IDC_DB 可指向自定义目录：自动补建父目录，避免运维配错时只看到原始 traceback。
+        p.parent.mkdir(parents=True, exist_ok=True)
+        c=sqlite3.connect(p, timeout=15)
+    except (OSError, sqlite3.OperationalError) as e:
+        raise RuntimeError(f'无法打开数据库文件 {p}：请检查 IDC_DB 指向的目录是否存在且可写（{e}）') from e
+    c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
 
 def init():
     with db() as c:
