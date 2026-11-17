@@ -5,14 +5,14 @@ import sqlite3
 import json
 import time
 from .config import IDEMPOTENCY_TTL
-from .db import db
+from .db import db, db_ctx
 def idem_begin(key, user_id, method_path, req_hash, durable):
     """返回 None 表示可以执行；返回 (status, obj) 表示应直接回放/拒绝。
     所有关键写请求都持久化首次结果：显式 UUID 跨时间严格幂等；
     裸请求用 3 秒时间桶去重，同一桶内并发/重试统一回放首次响应。"""
     now=int(time.time()); pending=False
     try:
-        with db() as c:
+        with db_ctx() as c:
             if now % 16 == 0:
                 c.execute('DELETE FROM idempotency WHERE created_at<?',(now-IDEMPOTENCY_TTL,))
             cur=c.execute('INSERT OR IGNORE INTO idempotency(key,user_id,endpoint,request_hash,created_at) VALUES(?,?,?,?,?)',
@@ -35,7 +35,7 @@ def idem_begin(key, user_id, method_path, req_hash, durable):
         for _ in range(60):
             time.sleep(0.05)
             try:
-                with db() as c2:
+                with db_ctx() as c2:
                     r=c2.execute('SELECT status,response FROM idempotency WHERE key=?',(key,)).fetchone()
                 if r and r['status'] is not None:
                     return (r['status'], json.loads(r['response']))
@@ -44,7 +44,7 @@ def idem_begin(key, user_id, method_path, req_hash, durable):
 
 def idem_finish(key, status, response_bytes, durable):
     try:
-        with db() as c:
+        with db_ctx() as c:
             if status>=500:
                 c.execute('DELETE FROM idempotency WHERE key=?',(key,))
             else:

@@ -12,7 +12,7 @@ from xml.sax.saxutils import escape as xml_escape
 from datetime import date, datetime, timedelta
 from .config import CALC_FIELDS, FIELD_LABELS, FIELD_LIMITS, GB_SPECS, HEADER_ALIASES, HEADER_SCAN_ROWS, IGNORED_CALC_HEADERS, IMPORT_LIMIT, IMPORT_ROW_LIMIT, IMPORT_TOKEN_MAX, ITEM_FIELDS, MOVEMENT_FIELDS, MOVEMENT_HEADERS, MOVEMENT_LABELS, SERVER_FIELD_LIMITS
 from .state import IMPORT_TOKENS, MOVEMENT_IMPORT_TOKENS, SERVER_COMPONENT_IMPORT_TOKENS, SERVER_IMPORT_TOKENS
-from .db import db
+from .db import db, db_ctx
 from .validation import norm_header, norm_model, clean_text, parse_planned, parse_qty, normalize_category, validate_server_fields
 def prune_import_tokens(now=None):
     now=now or int(time.time())
@@ -158,7 +158,7 @@ def build_item_preview(batch, header_row, mapping, token, header_issues=None):
              and i not in calc_cols
              and not any(norm_header(w) in norm_header(v) for w in IGNORED_CALC_HEADERS)]
     if unknown:warnings.append('未识别的列将忽略：'+ '、'.join(unknown[:12])+('…' if len(unknown)>12 else ''))
-    with db() as c:
+    with db_ctx() as c:
         existing={r['model_key'] for r in c.execute('SELECT model_key FROM items')}
         existing_by_key=({r['model_key']:dict(r) for r in c.execute('SELECT * FROM items')}
                          if mode=='update' else {})
@@ -341,7 +341,7 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
         qcol=str(columns[mapping['qty']] or '')
         if qcol and qcol.strip()!='入库数量' and ('计划' in qcol or 'planned' in norm_header(qcol)):
             warnings.append(f'数量列「{qcol}」含「计划」字样，请确认它确实是入库数量。')
-    with db() as c:
+    with db_ctx() as c:
         items={norm_model(r['model']):dict(r) for r in c.execute('SELECT id,category,model,description FROM items')}
     rows=[]; used_today=False; need_qty=0
     for rn,row in [(rn,row) for rn,row in nonempty if rn>header_row]:
@@ -514,7 +514,7 @@ def auto_detect_gb_header(candidates, spec):
     return best_rn, best_map, best_issues, best_warnings
 
 def gb_context(kind):
-    with db() as c:
+    with db_ctx() as c:
         existing = {r['sn'] for r in c.execute('SELECT sn FROM servers')}
         if kind == 'servers':
             return {'existing': existing, 'seen': set()}

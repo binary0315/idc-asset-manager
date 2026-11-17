@@ -5,6 +5,7 @@
 也不依赖外部冒烟脚本（那些不在仓库里）。
 """
 import re
+import shutil
 import subprocess
 import unittest
 from pathlib import Path
@@ -51,6 +52,7 @@ class TestImportPreview(unittest.TestCase):
 
 
 class TestMovementForm(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('node'), '未安装 Node，跳过 setUser 运行时校验')
     def test_date_defaults_today(self):
         # 不 grep 失效路径：真实执行 setUser()，覆盖 setup/login/会话恢复三条路径
         self.assertRegex(HTML, r'<form id="moveForm"[^>]*novalidate')

@@ -46,12 +46,12 @@ class TestDbInit(unittest.TestCase):
 
     def test_init_is_idempotent(self):
         """重复 init 不报错、不丢数据。"""
-        from idc.db import db, init
+        from idc.db import db, db_ctx, init
         init()
-        with db() as c:
+        with db_ctx() as c:
             c.execute("INSERT INTO items(model,model_key,description) VALUES('M1','m1','D')")
         init()  # 第二次
-        with db() as c:
+        with db_ctx() as c:
             models = [r[0] for r in c.execute('SELECT model FROM items')]
         self.assertEqual(models, ['M1'])
 
@@ -72,9 +72,9 @@ class TestDbInit(unittest.TestCase):
                 CREATE TABLE deletion_audit(id INTEGER PRIMARY KEY, table_name TEXT NOT NULL,
                     payload TEXT NOT NULL);
             ''')
-        from idc.db import db, init
+        from idc.db import db, db_ctx, init
         init()
-        with db() as c:
+        with db_ctx() as c:
             cols = {r['name'] for r in c.execute('PRAGMA table_info(items)')}
             self.assertIn('category', cols)
             self.assertIn('model_key', cols)
@@ -90,11 +90,43 @@ class TestDbInit(unittest.TestCase):
         with open(blocker, 'w', encoding='utf-8') as f:
             f.write('not a dir')
         os.environ['IDC_DB'] = os.path.join(blocker, 'sub', 'db.sqlite3')
-        from idc.db import db
+        from idc.db import db, db_ctx
         import sqlite3 as _sq
         with self.assertRaises(RuntimeError) as ctx:
             db()
         self.assertIn('IDC_DB', str(ctx.exception))
+
+    def test_db_ctx_closes_connection(self):
+        """db_ctx 退出后连接必须真正关闭（裸 Connection.with 只提交不关闭）。"""
+        import idc.db as dbmod
+        from idc.db import db_ctx
+        seen = []
+        orig = dbmod.db
+        try:
+            def spy():
+                c = orig()
+                seen.append(c)
+                return c
+            dbmod.db = spy  # db_ctx 内部调用模块级 db()
+            with db_ctx() as c:
+                c.execute("CREATE TABLE IF NOT EXISTS t(x)")
+            self.assertEqual(len(seen), 1)
+            with self.assertRaises(sqlite3.ProgrammingError):
+                seen[0].execute('SELECT 1')  # 关闭后再用应报错
+            # 异常路径也要关闭并回滚
+            try:
+                with db_ctx() as c2:
+                    c2.execute("INSERT INTO t(x) VALUES(1)")
+                    raise ValueError('boom')
+            except ValueError:
+                pass
+            with self.assertRaises(sqlite3.ProgrammingError):
+                seen[1].execute('SELECT 1')
+            with db_ctx() as chk:
+                self.assertEqual(chk.execute('SELECT count(*) FROM t').fetchone()[0], 0,
+                                 '异常路径应回滚')
+        finally:
+            dbmod.db = orig
 
 
 if __name__ == '__main__':

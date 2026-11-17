@@ -449,7 +449,6 @@ thead th[data-sort-key]:focus-visible{outline:2px solid var(--brand);outline-off
   .module-label{display:none}
   .top{padding:10px 12px;flex-wrap:wrap;gap:8px}
   .wrap{padding:14px 12px 40px;margin:0}
-  .card{padding:var(--card-pad)}
   .tabs{margin-bottom:14px}
   .tabs button{padding:10px 12px}
 }
@@ -469,7 +468,6 @@ thead th[data-sort-key]:focus-visible{outline:2px solid var(--brand);outline-off
   button{min-height:40px}
   .row>.field{min-width:100%}
   .toolbar>input,.toolbar input,.toolbar select{max-width:100%;width:100%}
-  .card{padding:var(--card-pad)}
   .tablewrap{max-height:70vh}
   .rack-dialog{padding:14px}
   .ui-modal-actions{flex-wrap:wrap}
@@ -477,7 +475,6 @@ thead th[data-sort-key]:focus-visible{outline:2px solid var(--brand);outline-off
 @media(max-width:360px){
   :root{--card-pad:12px}
   .wrap{padding:12px 8px 32px}
-  .card{padding:var(--card-pad)}
   .server-stats,#spareMaterialStats{grid-template-columns:1fr}
   .tabs button{padding:9px 10px;font-size:12px}
 }

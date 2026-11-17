@@ -45,7 +45,7 @@ from idc.state import (
     SERVER_COMPONENT_IMPORT_TOKENS,
     SERVER_IMPORT_TOKENS,
 )
-from idc.db import db, init
+from idc.db import db, db_ctx, init
 from idc.crypto import (pw_hash, json_bytes, validate_username, verify_credentials,
                         login_block_seconds, login_record_fail, login_clear,
                         DUMMY_SALT, DUMMY_HASH)
@@ -169,7 +169,7 @@ class Handler(BaseHTTPRequestHandler):
             if part.strip().startswith('sid='): token=part.strip()[4:]
         if not token: return None
         th=hashlib.sha256(token.encode()).hexdigest()
-        with db() as c:
+        with db_ctx() as c:
             row=c.execute('SELECT s.csrf,s.expires,u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1',(th,)).fetchone()
             if not row or row['expires']<int(time.time()):
                 c.execute('DELETE FROM sessions WHERE token_hash=?',(th,)); return None
@@ -215,7 +215,7 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/export/items.xlsx':
             u=self.require('can_view',False)
             if not u:return
-            with db() as c:
+            with db_ctx() as c:
                 rows=c.execute('''SELECT i.category,i.model,i.description,i.supplier,i.planned,
                 COALESCE(SUM(CASE WHEN m.kind='入库' THEN m.qty ELSE 0 END),0) received,
                 COALESCE(SUM(CASE WHEN m.kind='领用/安装' THEN m.qty ELSE 0 END),0) used,
@@ -231,12 +231,12 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/export/movements.xlsx':
             u=self.require('can_view',False)
             if not u:return
-            with db() as c: rows=c.execute('SELECT m.moved_at,m.kind,i.category,i.model,m.qty,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at,m.id').fetchall()
+            with db_ctx() as c: rows=c.execute('SELECT m.moved_at,m.kind,i.category,i.model,m.qty,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at,m.id').fetchall()
             headers=['日期','业务类型','类别','型号','数量','位置/去向','负责人','备注']
             payload=make_xlsx('库存变动明细',headers,[list(r) for r in rows],[14,16,14,20,12,24,18,32])
             return self.send(200,payload,headers={'Content-Disposition':'attachment; filename=IDC_inventory_movements.xlsx'},content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         if p=='/api/status':
-            with db() as c: setup=c.execute('SELECT count(*) FROM users').fetchone()[0]==0
+            with db_ctx() as c: setup=c.execute('SELECT count(*) FROM users').fetchone()[0]==0
             return self.send(200,{'setup_required':setup})
         if p=='/api/config':
             # 开放化第一步：把目前写死在后端/前端的业务口径集中到一个只读接口。
@@ -262,7 +262,7 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/items':
             u=self.require('can_view',False)
             if not u:return
-            with db() as c:
+            with db_ctx() as c:
                 rows=c.execute('''SELECT i.*,
                 COALESCE(SUM(CASE WHEN m.kind='入库' THEN m.qty ELSE 0 END),0) received,
                 COALESCE(SUM(CASE WHEN m.kind='领用/安装' THEN m.qty ELSE 0 END),0) used,
@@ -275,7 +275,7 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/spares':
             u=self.require('can_view',False)
             if not u:return
-            with db() as c:
+            with db_ctx() as c:
                 rows=c.execute('''SELECT i.id,i.category,i.model,i.description,
                     COALESCE(m.received,0) received,COALESCE(m.used,0) used,COALESCE(m.damaged,0) damaged,
                     COALESCE(r.waiting,0) rma_waiting,COALESCE(r.processing,0) rma_processing
@@ -316,19 +316,19 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/movements':
             u=self.require('can_view',False)
             if not u:return
-            with db() as c: rows=c.execute('SELECT m.id,m.moved_at,m.kind,i.category,i.model,m.qty,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at DESC,m.id DESC LIMIT 1000').fetchall()
+            with db_ctx() as c: rows=c.execute('SELECT m.id,m.moved_at,m.kind,i.category,i.model,m.qty,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at DESC,m.id DESC LIMIT 1000').fetchall()
             return self.send(200,{'movements':[dict(x) for x in rows]})
         if p=='/api/servers':
             u=self.require('can_view',False)
             if not u:return
-            with db() as c: rows=c.execute('SELECT id,room,rack,sn FROM servers ORDER BY room,rack,sn').fetchall()
+            with db_ctx() as c: rows=c.execute('SELECT id,room,rack,sn FROM servers ORDER BY room,rack,sn').fetchall()
             return self.send(200,{'servers':[dict(x) for x in rows]})
         if p.startswith('/api/servers/') and p.endswith('/components'):
             u=self.require('can_view',False)
             if not u:return
             try:server_id=int(p.split('/')[3])
             except:return self.send(400,{'error':'服务器编号无效'})
-            with db() as c:
+            with db_ctx() as c:
                 server=c.execute('SELECT id,room,rack,sn FROM servers WHERE id=?',(server_id,)).fetchone()
                 if not server:return self.send(404,{'error':'服务器不存在'})
                 components=c.execute('SELECT id,node_sn,node_u,kp_name,bmc_mac FROM server_components WHERE server_sn=? ORDER BY node_u DESC',(server['sn'],)).fetchall()
@@ -344,7 +344,7 @@ class Handler(BaseHTTPRequestHandler):
             if p!='/api/recycle':
                 try:detail_id=int(p.rsplit('/',1)[1])
                 except:return self.send(400,{'error':'记录编号无效'})
-            with db() as c:
+            with db_ctx() as c:
                 if detail_id is not None:
                     row=c.execute('SELECT * FROM deletion_audit WHERE id=?',(detail_id,)).fetchone()
                     if not row:return self.send(404,{'error':'回收站记录不存在'})
@@ -388,7 +388,7 @@ class Handler(BaseHTTPRequestHandler):
             u=self.require(csrf=False)
             if not u:return
             if not u['is_admin']: return self.send(403,{'error':'仅管理员可管理账号'})
-            with db() as c: rows=c.execute('SELECT id,username,is_admin,can_view,can_edit,active,created_at FROM users ORDER BY id').fetchall()
+            with db_ctx() as c: rows=c.execute('SELECT id,username,is_admin,can_view,can_edit,active,created_at FROM users ORDER BY id').fetchall()
             return self.send(200,{'users':[dict(x) for x in rows]})
         return self.send(404,{'error':'没有这个页面'})
     def do_POST(self):
@@ -429,14 +429,14 @@ class Handler(BaseHTTPRequestHandler):
                     batch['rows']=clean;batch['serials']=sorted(ctx['serials'])
                 except ValueError as e:return self.send(400,{'error':str(e)})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     current={r['sn'] for r in c.execute('SELECT sn FROM servers')}
                     if not set(batch['serials']).issubset(current):raise ValueError('服务器台账中的 SN 已变更，请重新预览文件')
                     for server_sn in batch['serials']:c.execute('DELETE FROM server_components WHERE server_sn=?',(server_sn,))
                     c.executemany('INSERT INTO server_components(server_sn,node_sn,node_u,kp_name,bmc_mac) VALUES(?,?,?,?,?)',[(x['server_sn'],x['node_sn'],x['node_u'],x['kp_name'],x['bmc_mac']) for x in batch['rows']])
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'部件数据存在重复 NODE_SN 或 NODE，整批未导入；请重新预览'})
-            with db() as c:
+            with db_ctx() as c:
                 log_action(c,u['id'],'导入部件清单',f'{len(batch["rows"])} 条 / {len(batch["serials"])} 台',
                            f'按 SN 替换 46U 部件清单；来源文件预览令牌已消费')
             # 校验与事务都成功后才消费令牌；失败时用同一令牌修正数据可直接重试。
@@ -472,13 +472,13 @@ class Handler(BaseHTTPRequestHandler):
                     batch['rows']=clean
                 except ValueError as e:return self.send(400,{'error':str(e)})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     for server in batch['rows']:
                         if c.execute('SELECT 1 FROM servers WHERE sn=?',(server['sn'],)).fetchone():raise ValueError('确认导入前发现重复 SN，请重新上传并处理重复记录')
                         c.execute('INSERT INTO servers(room,rack,sn) VALUES(?,?,?)',(server['room'],server['rack'],server['sn']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入期间发现重复 SN，整批未写入；请重新预览文件'})
-            with db() as c:
+            with db_ctx() as c:
                 log_action(c,u['id'],'导入服务器',f'{len(batch["rows"])} 台',
                            'Excel 导入服务器位置清单')
             SERVER_IMPORT_TOKENS.pop(token,None)
@@ -553,7 +553,7 @@ class Handler(BaseHTTPRequestHandler):
             if not u['is_admin']:return self.send(403,{'error':'仅管理员可还原记录'})
             try:d=self.body()
             except:return self.send(400,{'error':'无法读取还原请求'})
-            with db() as c:
+            with db_ctx() as c:
                 ids=d.get('ids')
                 if d.get('all'):
                     ids=[r['id'] for r in c.execute("SELECT id FROM deletion_audit WHERE table_name='items' AND restored_at IS NULL ORDER BY id")]
@@ -581,7 +581,7 @@ class Handler(BaseHTTPRequestHandler):
             if not u['is_admin']:return self.send(403,{'error':'仅管理员可彻底删除回收站记录'})
             try:d=self.body()
             except:return self.send(400,{'error':'无法读取彻底删除请求'})
-            with db() as c:
+            with db_ctx() as c:
                 ids=d.get('ids')
                 if d.get('all'):
                     ids=[r['id'] for r in c.execute('SELECT id FROM deletion_audit ORDER BY id')]
@@ -651,7 +651,7 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError as e:return self.send(400,{'error':str(e)})
                 source=edited  # 用户手填的数量以提交内容为准
             # 无论是否提交编辑后的行，确认时都做一次完整复校（防止 0 数量落库）
-            with db() as c:
+            with db_ctx() as c:
                 items={norm_model(r['model']):dict(r) for r in c.execute('SELECT id,category,model,description FROM items')}
             clean=[]
             try:
@@ -675,14 +675,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(400,{'error':str(e) or '编辑内容格式错误'})
             batch['rows']=clean
             try:
-                with db() as c:
+                with db_ctx() as c:
                     for item in batch['rows']:
                         exists=c.execute('SELECT id FROM items WHERE id=?',(item['item_id'],)).fetchone()
                         if not exists:raise ValueError('物料在确认导入前已被删除，请重新预览文件')
                         c.execute('INSERT INTO movements(item_id,kind,qty,moved_at,location,owner,notes,created_by) VALUES(?,?,?,?,?,?,?,?)',(item['item_id'],'入库',item['qty'],item['moved_at'],item['location'],item['owner'],item['notes'],u['id']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入未完成，请重新预览文件后重试'})
-            with db() as c:
+            with db_ctx() as c:
                 log_action(c,u['id'],'导入入库明细',f'{len(batch["rows"])} 条',
                            f'Excel 导入入库，合计 {sum(x["qty"] for x in batch["rows"])} 件')
             MOVEMENT_IMPORT_TOKENS.pop(token,None)
@@ -725,7 +725,7 @@ class Handler(BaseHTTPRequestHandler):
                         fields['row']=base.get('row')
                         if mode=='update':fields['matched_id']=base.get('matched_id')
                         clean.append(fields)
-                    with db() as c:
+                    with db_ctx() as c:
                         existing={r['model_key'] for r in c.execute('SELECT model_key FROM items')}
                     if mode=='create':
                         duplicate=seen & existing
@@ -739,7 +739,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(400,{'error':'编辑内容格式错误，请检查预览表格中的数值和文本'})
                 batch['rows']=clean
             try:
-                with db() as c:
+                with db_ctx() as c:
                     if mode=='update':
                         for item in batch['rows']:
                             rid=item.get('matched_id')
@@ -755,7 +755,7 @@ class Handler(BaseHTTPRequestHandler):
                                  item['supplier'],item['planned'],item['location'],item['owner'],item['notes']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入期间发现重复型号，整批未导入；请刷新预览后处理重复项'})
-            with db() as c:
+            with db_ctx() as c:
                 log_action(c,u['id'],'批量更新物料' if mode=='update' else '导入物料',
                            f'{len(batch["rows"])} 条',f'模式：{mode}')
             IMPORT_TOKENS.pop(token,None)
@@ -801,7 +801,7 @@ class Handler(BaseHTTPRequestHandler):
             token=''
             for part in self.headers.get('Cookie','').split(';'):
                 if part.strip().startswith('sid='):token=part.strip()[4:]
-            with db() as c:c.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),))
+            with db_ctx() as c:c.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),))
             return self.send(200,{'ok':True},headers={'Set-Cookie':'sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'})
         if p=='/api/servers':
             u=self.require('can_edit')
@@ -810,7 +810,7 @@ class Handler(BaseHTTPRequestHandler):
             try:room,rack,sn=validate_server_fields(room,rack,sn)
             except ValueError as e:return self.send(400,{'error':str(e)})
             try:
-                with db() as c:c.execute('INSERT INTO servers(room,rack,sn) VALUES(?,?,?)',(room,rack,sn))
+                with db_ctx() as c:c.execute('INSERT INTO servers(room,rack,sn) VALUES(?,?,?)',(room,rack,sn))
             except sqlite3.IntegrityError:return self.send(409,{'error':'该 SN 已存在'})
             return self.send(201,{'ok':True})
         if p=='/api/items':
@@ -819,7 +819,7 @@ class Handler(BaseHTTPRequestHandler):
             try: fields=validate_item_fields(d)
             except ValueError as e:return self.send(400,{'error':str(e)})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     if c.execute('SELECT 1 FROM items WHERE model_key=?',(fields['model_key'],)).fetchone():
                         return self.send(409,{'error':'该型号已存在；型号必须唯一（不区分大小写）'})
                     c.execute('INSERT INTO items(category,model,model_key,description,supplier,planned,location,owner,notes) VALUES(?,?,?,?,?,?,?,?,?)',
@@ -841,7 +841,7 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,TypeError):
                 return self.send(400,{'error':'日期格式必须是 YYYY-MM-DD，例如 2026-11-12'})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     matches=c.execute('SELECT id,model,category FROM items WHERE model_key=?',(norm_model(model),)).fetchall()
                     if not matches:return self.send(404,{'error':'型号不存在'})
                     if len(matches)>1:return self.send(409,{'error':'该型号不唯一，无法关联'})
@@ -866,7 +866,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(password)<12:return self.send(400,{'error':'新账号密码至少 12 位'})
             salt=secrets.token_bytes(16)
             try:
-                with db() as c:c.execute('INSERT INTO users(username,salt,pw_hash,is_admin,can_view,can_edit) VALUES(?,?,?,0,?,?)',(username,salt,pw_hash(password,salt),int(bool(d.get('can_view')) or bool(d.get('can_edit'))),int(bool(d.get('can_edit')))))
+                with db_ctx() as c:c.execute('INSERT INTO users(username,salt,pw_hash,is_admin,can_view,can_edit) VALUES(?,?,?,0,?,?)',(username,salt,pw_hash(password,salt),int(bool(d.get('can_view')) or bool(d.get('can_edit'))),int(bool(d.get('can_edit')))))
             except sqlite3.IntegrityError:return self.send(409,{'error':'用户名已存在'})
             return self.send(201,{'ok':True})
         return self.send(404,{'error':'没有这个接口'})
@@ -884,7 +884,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(responsible)>100:return self.send(400,{'error':'负责人最多 100 字'})
             if len(notes)>SPARE_NOTES_LIMIT:return self.send(400,{'error':f'备注最多 {SPARE_NOTES_LIMIT} 字'})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     old=c.execute('SELECT * FROM material_spares WHERE id=?',(spare_id,)).fetchone()
                     if not old:return self.send(404,{'error':'坏件记录不存在'})
                     duplicate=c.execute('SELECT id FROM material_spares WHERE item_id=? AND serial_number=? AND id<>?',(old['item_id'],serial,spare_id)).fetchone()
@@ -904,7 +904,7 @@ class Handler(BaseHTTPRequestHandler):
             if status not in MATERIAL_SPARE_STATUSES:return self.send(400,{'error':'备件状态无效'})
             if not responsible or len(responsible)>100:return self.send(400,{'error':'实际操作人必填，最多 100 字'})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     old=c.execute('SELECT * FROM material_spare_cases WHERE id=?',(case_id,)).fetchone()
                     if not old:return self.send(404,{'error':'RMA备件记录不存在'})
                     active=('待RMA','RMA处理中')
@@ -936,7 +936,7 @@ class Handler(BaseHTTPRequestHandler):
             if not responsible or len(responsible)>100:return self.send(400,{'error':'实际操作人必填，最多 100 字'})
             if len(notes)>SPARE_NOTES_LIMIT:return self.send(400,{'error':f'备注最多 {SPARE_NOTES_LIMIT} 字'})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     old=c.execute('SELECT status FROM server_spares WHERE id=?',(spare_id,)).fetchone()
                     if not old:return self.send(404,{'error':'服务器备件记录不存在'})
                     c.execute('UPDATE server_spares SET status=?,responsible=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',(status,responsible,notes,spare_id))
@@ -954,7 +954,7 @@ class Handler(BaseHTTPRequestHandler):
             if action not in ('信息修正','部件更换'):return self.send(400,{'error':'操作类型无效'})
             if action=='部件更换' and node_sn=='' :return self.send(400,{'error':'更换后的 NODE_SN 不能为空'})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     old=c.execute('SELECT server_sn,node_sn,node_u,kp_name,bmc_mac FROM server_components WHERE id=?',(component_id,)).fetchone()
                     if not old:return self.send(404,{'error':'该 U 位部件不存在'})
                     srv=c.execute('SELECT id FROM servers WHERE sn=?',(old['server_sn'],)).fetchone()
@@ -982,7 +982,7 @@ class Handler(BaseHTTPRequestHandler):
             try:room,rack,sn=validate_server_fields(room,rack,sn)
             except ValueError as e:return self.send(400,{'error':str(e)})
             try:
-                with db() as c:
+                with db_ctx() as c:
                     cur=c.execute('UPDATE servers SET room=?,rack=?,sn=? WHERE id=?',(room,rack,sn,server_id))
                     if cur.rowcount==0:return self.send(404,{'error':'服务器记录不存在'})
             except sqlite3.IntegrityError:return self.send(409,{'error':'该 SN 已被其他服务器使用'})
@@ -996,7 +996,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as e:return self.send(400,{'error':str(e)})
             model=str(d.get('model','')).strip(); kind=str(d.get('kind','')); moved=str(d.get('moved_at',''))
             if not model or not moved or kind not in ('入库','领用/安装','报废'):return self.send(400,{'error':'型号、日期和有效业务类型必填'})
-            with db() as c:
+            with db_ctx() as c:
                 items=c.execute('SELECT id FROM items WHERE model=?',(model,)).fetchall()
                 if len(items)!=1:return self.send(400,{'error':'型号不存在或不唯一'})
                 item=c.execute('SELECT category FROM items WHERE id=?',(items[0]['id'],)).fetchone()
@@ -1030,7 +1030,7 @@ class Handler(BaseHTTPRequestHandler):
             try:fields=validate_item_fields(d,partial=True)
             except ValueError as e:return self.send(400,{'error':str(e)})
             if not fields:return self.send(400,{'error':'没有需要修改的字段'})
-            with db() as c:
+            with db_ctx() as c:
                 cur=c.execute('SELECT id,model_key FROM items WHERE id=?',(item_id,)).fetchone()
                 if not cur:return self.send(404,{'error':'物料不存在'})
                 if 'model_key' in fields and fields['model_key']!=cur['model_key']:
@@ -1048,7 +1048,7 @@ class Handler(BaseHTTPRequestHandler):
         try:d=self.body(); uid=int(p.rsplit('/',1)[1])
         except:return self.send(400,{'error':'请求格式无效'})
         if uid==u['id']:return self.send(400,{'error':'不能停用当前管理员账号'})
-        with db() as c:
+        with db_ctx() as c:
             target=c.execute('SELECT id,is_admin FROM users WHERE id=?',(uid,)).fetchone()
             if not target or target['is_admin']:return self.send(404,{'error':'协管员不存在'})
             active=int(bool(d.get('active',True))); edit=int(bool(d.get('can_edit'))); view=int(bool(d.get('can_view')) or bool(edit))
@@ -1057,7 +1057,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.send(200,{'ok':True})
     def make_session(self,uid):
         token=secrets.token_urlsafe(32); csrf=secrets.token_urlsafe(24); th=hashlib.sha256(token.encode()).hexdigest()
-        with db() as c:
+        with db_ctx() as c:
             c.execute('INSERT INTO sessions(token_hash,user_id,csrf,expires) VALUES(?,?,?,?)',(th,uid,csrf,int(time.time())+SESSION_SECONDS))
             u=c.execute('SELECT id,username,is_admin,can_view,can_edit FROM users WHERE id=?',(uid,)).fetchone()
         # 内网 HTTP 直接部署不能加 Secure（否则 Cookie 不会被发送）；经 HTTPS 反代时自动补齐。
@@ -1074,7 +1074,7 @@ class Handler(BaseHTTPRequestHandler):
         except:return self.send(400,{'error':'记录编号无效'})
         try: d=self.body() if int(self.headers.get('Content-Length','0') or 0)>0 else {}
         except Exception: d={}
-        with db() as c:
+        with db_ctx() as c:
             if p.startswith('/api/server-spares/'):
                 spare=c.execute('''SELECT s.id,s.server_id,sv.sn AS current_sn
                     FROM server_spares s LEFT JOIN servers sv ON sv.id=s.server_id

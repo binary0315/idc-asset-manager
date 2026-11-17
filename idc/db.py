@@ -3,8 +3,28 @@
 
 import sqlite3
 import json
+from contextlib import contextmanager
 from .config import get_db_path
 from .validation import norm_model
+
+@contextmanager
+def db_ctx():
+    """自动提交/回滚并关闭连接的上下文管理器。
+
+    sqlite3.Connection 的 with 只提交事务、不会关闭连接；长期运行的服务若只靠
+    GC 回收，异常路径下会短暂堆积句柄。业务读写优先用 db_ctx()。
+    需要手动控制事务（如 BEGIN IMMEDIATE）的场景才用 db() 裸连接。
+    """
+    c = db()
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()
+
 def db():
     p=get_db_path()
     try:
@@ -16,7 +36,7 @@ def db():
     c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
 
 def init():
-    with db() as c:
+    with db_ctx() as c:
         c.executescript('''
         CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, salt BLOB NOT NULL, pw_hash BLOB NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, can_view INTEGER NOT NULL DEFAULT 1, can_edit INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, csrf TEXT NOT NULL, expires INTEGER NOT NULL);

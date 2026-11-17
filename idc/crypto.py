@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import time
 from .config import LOGIN_WINDOW, LOGIN_MAX_FAILS, LOGIN_BASE_LOCK, LOGIN_MAX_LOCK
-from .db import db
+from .db import db, db_ctx
 from .state import LOGIN_FAILS, LOGIN_LOCK
 def pw_hash(password,salt): return hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,310000)
 
@@ -23,7 +23,7 @@ def validate_username(name):
     return name
 
 def verify_credentials(username, password):
-    with db() as c:
+    with db_ctx() as c:
         u=c.execute('SELECT * FROM users WHERE username=? AND active=1',(username,)).fetchone()
     salt=bytes(u['salt']) if u else DUMMY_SALT
     expected=bytes(u['pw_hash']) if u else DUMMY_HASH
