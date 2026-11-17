@@ -1,10 +1,13 @@
 let me=null,csrf='',editingServerId=null,selectedServerRoom=null;const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function showAuth(setup){$('#app').classList.add('hidden');$('#login').classList.remove('hidden');$('#setupHint').classList.toggle('hidden',!setup);$('#authTitle').textContent=setup?'首次使用：创建管理员':'登录 IDC资产管理';$('#authSubmit').textContent=setup?'创建管理员':'登录';$('#authForm').dataset.setup=setup?'1':'';$('#authForm').elements.password.minLength=setup?12:1;$('#authForm').elements.password.autocomplete=setup?'new-password':'current-password'}
+function todayStr(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
+function initMoveDate(){const el=$('#moveForm')&&$('#moveForm').elements.moved_at;if(el&&!el.value)el.value=todayStr()}
+
 async function start(){
   try{
     let status=await api('/api/status');
     if(status.setup_required)return showAuth(true);
-    let r=await api('/api/me');setUser(r);await refresh();
+    let r=await api('/api/me');setUser(r);initMoveDate();await refresh();
     const box=$('#bootError');if(box)box.classList.add('hidden');
   }catch(e){
     if(e&&e.status>=401&&e.status<500)return showAuth(false); // 明确未登录
@@ -41,10 +44,40 @@ $('#movementImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target
 
 $('#moveForm').elements.kind.onchange=e=>{$('#locationLabel').textContent=e.target.value==='入库'?'入库位置（选填）':e.target.value==='报废'?'处理去向（选填）':'使用位置/目的地（选填）'};
 function fillMovementModels(items=window.allItems||[]){let cat=$('#moveCategory')?.value;let matches=items.filter(x=>x.category===cat);$('#moveModel').innerHTML=matches.map(x=>`<option value="${esc(x.model)}">${esc(x.model)}</option>`).join('')}$('#moveCategory').onchange=()=>fillMovementModels();
-$('#moveForm').onsubmit=async e=>{e.preventDefault();let p=Object.fromEntries(new FormData(e.target));try{await api('/api/movements',{method:'POST',body:JSON.stringify(p)});$('#moveMsg').textContent='库存明细已登记';let date=e.target.elements.moved_at.value;e.target.reset();e.target.elements.moved_at.value=date;await loadItems();fillMovementModels();await loadMoves()}catch(err){$('#moveMsg').textContent=err.message}};
-function filterItems(){let q=$('#itemSearch').value.toLowerCase(),cat=$('#categoryFilter').value;for(let tr of $('#itemsBody').rows)tr.hidden=!(tr.innerText.toLowerCase().includes(q)&&(!cat||tr.dataset.category===cat))}$('#itemSearch').oninput=filterItems;$('#categoryFilter').onchange=filterItems;
+$('#moveForm').onsubmit=async e=>{
+  e.preventDefault();
+  const f=e.target,p=Object.fromEntries(new FormData(f));
+  const miss=[];
+  if(!p.moved_at)miss.push('日期');
+  if(!p.qty||!(Number(p.qty)>0))miss.push('数量（需大于 0 的整数）');
+  if(!p.model)miss.push('型号');
+  if(miss.length){$('#moveMsg').textContent='请填写：'+miss.join('、');return}
+  $('#moveMsg').textContent='';
+  try{await api('/api/movements',{method:'POST',body:JSON.stringify(p)});$('#moveMsg').textContent='库存明细已登记';f.reset();f.elements.moved_at.value=todayStr();await loadItems();fillMovementModels();await loadMoves()}
+  catch(err){$('#moveMsg').textContent=err.message}
+};
+function filterItems(){
+  const q=$('#itemSearch').value.trim().toLowerCase(),cat=$('#categoryFilter').value;
+  const body=$('#itemsBody');if(!body)return;
+  let shown=0,total=0;
+  for(const tr of Array.from(body.rows)){
+    if(tr.dataset.filterHint)continue;
+    total++;
+    const hit=tr.innerText.toLowerCase().includes(q)&&(!cat||tr.dataset.category===cat);
+    tr.hidden=!hit;if(hit)shown++;
+  }
+  let hint=body.querySelector('[data-filter-hint]');
+  if(shown===0&&total>0){
+    if(!hint){hint=document.createElement('tr');hint.dataset.filterHint='1';hint.innerHTML='<td colspan="14" class="filter-empty">没有匹配的物料 · 共 '+total+' 条，匹配 0 条。 <button type="button" class="linklike" onclick="clearItemFilter()">清除筛选</button></td>';body.appendChild(hint)}
+    else hint.innerHTML='<td colspan="14" class="filter-empty">没有匹配的物料 · 共 '+total+' 条，匹配 0 条。 <button type="button" class="linklike" onclick="clearItemFilter()">清除筛选</button></td>';
+    hint.hidden=false;
+  }else if(hint)hint.hidden=true;
+}
+function clearItemFilter(){const s=$('#itemSearch'),c=$('#categoryFilter');if(s)s.value='';if(c)c.value='';filterItems()}
+$('#itemSearch').oninput=filterItems;$('#categoryFilter').onchange=filterItems;
 async function deleteMovement(id){if(!await uiConfirm('确定删除这条库存变动明细吗？删除后台账汇总库存会随之变化。'))return;try{await api('/api/movements/'+id,{method:'DELETE'});await loadItems();await loadMoves()}catch(e){uiToast(e.message)}}
-async function activateTab(tab){document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('hidden',x.id!==tab.dataset.tab));try{if(tab.dataset.tab==='items'){await loadItems();filterItems()}else if(tab.dataset.tab==='movements'){await Promise.all([loadItems(),loadMoves()]);filterItems();fillMovementModels()}else if(tab.dataset.tab==='servers')await loadServers();else if(tab.dataset.tab==='spares')await loadSpares();else if(tab.dataset.tab==='recycle'&&me?.is_admin)await loadRecycle();else if(tab.dataset.tab==='users'&&me?.is_admin)await loadUsers()}catch(e){uiToast('刷新页面数据失败：'+e.message)}}
+async function activateTab(tab){document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===tab));
+try{if(tab&&tab.scrollIntoView)tab.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})}catch(e){}document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('hidden',x.id!==tab.dataset.tab));try{if(tab.dataset.tab==='items'){await loadItems();filterItems()}else if(tab.dataset.tab==='movements'){await Promise.all([loadItems(),loadMoves()]);filterItems();fillMovementModels()}else if(tab.dataset.tab==='servers')await loadServers();else if(tab.dataset.tab==='spares')await loadSpares();else if(tab.dataset.tab==='recycle'&&me?.is_admin)await loadRecycle();else if(tab.dataset.tab==='users'&&me?.is_admin)await loadUsers()}catch(e){uiToast('刷新页面数据失败：'+e.message)}}
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>activateTab(b));
 $('#userForm').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target);let p={username:f.get('username'),password:f.get('password'),can_view:f.has('can_view'),can_edit:f.has('can_edit')};try{await api('/api/users',{method:'POST',body:JSON.stringify(p)});e.target.reset();$('#userMsg').textContent='协管员账号已创建';await loadUsers()}catch(err){$('#userMsg').textContent=err.message}};
 async function loadUsers(){let {users}=await api('/api/users');$('#usersBody').innerHTML=users.filter(x=>!x.is_admin).map(x=>`<tr><td>${esc(x.username)}</td><td><input type="checkbox" ${x.can_view?'checked':''} data-id="${x.id}" data-key="can_view"></td><td><input type="checkbox" ${x.can_edit?'checked':''} data-id="${x.id}" data-key="can_edit"></td><td>${x.active?'启用':'停用'}</td><td><button class="secondary" data-toggle="${x.id}" data-active="${x.active?0:1}">${x.active?'停用账号':'启用账号'}</button></td></tr>`).join('');$('#usersBody').querySelectorAll('input').forEach(el=>el.onchange=async()=>{let id=el.dataset.id,other=$(`#usersBody input[data-id="${id}"][data-key="${el.dataset.key==='can_view'?'can_edit':'can_view'}"]`);try{await api('/api/users/'+id,{method:'PATCH',body:JSON.stringify({can_view:el.dataset.key==='can_view'?el.checked:other.checked,can_edit:el.dataset.key==='can_edit'?el.checked:other.checked,active:true})})}catch(e){uiToast(e.message);await loadUsers()}});$('#usersBody').querySelectorAll('button[data-toggle]').forEach(b=>b.onclick=async()=>{let id=b.dataset.toggle,view=$(`#usersBody input[data-id="${id}"][data-key="can_view"]`).checked,edit=$(`#usersBody input[data-id="${id}"][data-key="can_edit"]`).checked;try{await api('/api/users/'+id,{method:'PATCH',body:JSON.stringify({can_view:view,can_edit:edit,active:b.dataset.active==='1'})});await loadUsers()}catch(e){uiToast(e.message)}})}
@@ -94,8 +127,16 @@ function renderServerComponentStack(server,components,operations=[]){
   let content=x?'<div class="u-component"><strong>'+esc(x.kp_name)+'</strong><span><b>NODE_SN</b> <code>'+esc(x.node_sn)+'</code></span><span><b>BMC_MAC</b> <code>'+esc(x.bmc_mac||'—')+'</code></span></div>':'<span class="u-empty-label">空位</span>';
   return '<div class="u-slot '+(x?'filled':'empty')+'"><span class="u-number">U'+u+'</span><div class="u-main">'+content+opText+'</div>'+(canEdit&&x?'<button class="secondary u-edit" data-server="'+server.id+'" data-component="'+x.id+'" data-u="'+u+'">编辑 / 更换 SN</button>':'')+'</div>'
  }).join('');
- return '<section class="component-device"><div class="component-device-title"><div><strong>GB300 · '+esc(server.sn)+'</strong><span>'+esc(server.room)+' / '+esc(server.rack)+'</span></div><span>'+components.length+' / 46 U</span></div><div class="u-stack">'+slots+'</div></section>'
+ const emptyNotice=components.length===0?'<div class="component-empty-notice">该 SN 还没有 46U 部件数据，46 个 U 位显示为空位属正常。 <button type="button" class="linklike" onclick="goImportServerComponents()">去导入部件明细</button></div>':'';
+ return '<section class="component-device"><div class="component-device-title"><div><strong>GB300 · '+esc(server.sn)+'</strong><span>'+esc(server.room)+' / '+esc(server.rack)+'</span></div><span>'+components.length+' / 46 U</span></div>'+emptyNotice+'<div class="u-stack">'+slots+'</div></section>'
 }
+function goImportServerComponents(){
+  const tab=document.querySelector('[data-tab=servers]');if(tab&&typeof activateTab==='function')activateTab(tab);
+  const card=$('#serverComponentImportCard');
+  if(card){card.classList.remove('hidden');try{card.scrollIntoView({behavior:'smooth',block:'start'})}catch(e){}}
+  const dialog=$('#rackDialog');if(dialog&&typeof dialog.close==='function')dialog.close();
+}
+
 async function openRack(room,rack){let rows=(window.allServers||[]).filter(x=>x.room===room&&x.rack===rack);$('#rackDialog').dataset.room=room;$('#rackDialog').dataset.rack=rack;$('#rackDialogTitle').textContent=room+' · '+rack+' · 46U';$('#rackDialogSummary').textContent='GB300 服务器 · '+rows.length+' 台';$('#rackDialogBody').innerHTML='<p class="hint">正在读取设备信息…</p>';$('#rackDialog').showModal();try{let detail=await Promise.all(rows.map(x=>api('/api/servers/'+x.id+'/components')));$('#rackDialogBody').innerHTML=detail.map(x=>renderServerComponentStack(x.server,x.components,x.operations)).join('');$('#rackDialogBody').querySelectorAll('.u-edit').forEach(btn=>btn.onclick=()=>{let d=detail.find(x=>String(x.server.id)===btn.dataset.server),component=d.components.find(x=>String(x.id)===btn.dataset.component);openComponentEditor(d.server,component,Number(btn.dataset.u))})}catch(e){$('#rackDialogBody').innerHTML='<p class="import-errors">设备信息读取失败：'+esc(e.message)+'</p>'}}
 function openComponentEditor(server,component,u){let f=$('#componentEditForm');f.reset();f.dataset.componentId=component.id;f.elements.node_sn.value=component.node_sn;f.elements.responsible.value=me?.username||'';$('#componentEditU').value='U'+component.node_u;$('#componentEditKp').value=component.kp_name;$('#componentEditTitle').textContent='编辑 / 更换 U'+u+' 的 NODE_SN';$('#componentEditAction').value='部件更换';$('#componentEditMsg').textContent='更换会把原 NODE_SN 自动登记为服务器备件；信息修正仅用于更正录入错误。U 位、KP_NAME 和 BMC_MAC 固定不变。';$('#componentEditDialog').showModal()}
 $('#componentEditForm').onsubmit=async e=>{e.preventDefault();let f=e.target,payload={node_sn:f.elements.node_sn.value.trim(),responsible:f.elements.responsible.value.trim(),action:$('#componentEditAction').value};try{await api('/api/server-components/'+f.dataset.componentId,{method:'PATCH',body:JSON.stringify(payload)});$('#componentEditDialog').close();await openRack($('#rackDialog').dataset.room,$('#rackDialog').dataset.rack)}catch(err){$('#componentEditMsg').textContent=err.message}}
@@ -228,7 +269,7 @@ function renderImportPreview(d){
       <p class="hint">自动识别会扫描前 30 个非空行。表头不在第一行、或识别错了，直接在这里选。</p></div>
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
-      <div id="importMapping" class="import-mapping-grid">${colHtml}</div>
+      <details class="mapping-details"${d.can_import&&Object.keys(d.mapping||{}).length?'':' open'}><summary>点击调整字段对应（逐列指定 / 重新校验）</summary><div id="importMapping" class="import-mapping-grid">${colHtml}</div></details>
       <p class="hint">${mode==='create'?'新增模式必需：型号、名称/规格；计划数量可留空（预览补填，默认 0）；类别可用整批默认值。':'更新模式必需：型号（作为匹配键，不可修改）；未提供的列保留台账现值。'}</p></div>
     ${d.suggest_import==='movements'?`<p class="import-errors"><b>可能选错导入类型</b>：这份表含库存变动特征列。若要登记入库，请到「库存变动明细」页面重新上传同一个 Excel；当前物料台账导入不会写入这些数量。</p>`:''}
     ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
@@ -238,9 +279,10 @@ function renderImportPreview(d){
       <div class="import-pager"><button type="button" class="secondary" id="itemDeletedRestore" onclick="pvRestore('items',null)">恢复已删除的行</button><span id="itemDeletedInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
       <div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="importPreviewBody"></tbody></table></div></div>
-    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="confirmImport">${verb} ${d.rows} 条</button><div id="importResult" class="status" aria-live="polite"></div></div>`:''}
+    ${(d.token||d.edit_token)?`<div class="import-section import-confirm-bar"><div class="confirm-bar-meta" id="itemConfirmMeta"></div><button type="button" id="confirmImport">${verb} ${d.rows} 条</button><div id="importResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   renderImportPage();pvUpdateBar('items',null);
+  if($('#importCard')&&$('#importCard').tagName==='DETAILS')$('#importCard').open=true;
   if(d.token||d.edit_token)$('#confirmImport').onclick=()=>confirmImport(d.token||d.edit_token);
 }
 
@@ -299,12 +341,38 @@ $('#importForm').onsubmit=async e=>{
   }catch(err){$('#importMsg').textContent=err.message}
 };
 
+let itemSort={key:null,dir:1};
+function sortItemsBy(key){
+  if(itemSort.key===key)itemSort.dir=-itemSort.dir;
+  else itemSort={key,dir:1};
+  loadItems();
+}
+function bindItemSortHeaders(){
+  const ths=document.querySelectorAll('#items thead th');
+  const map={1:'model',8:'available',9:'not_received'};
+  Object.entries(map).forEach(([idx,key])=>{
+    const th=ths[Number(idx)];if(!th)return;
+    th.dataset.sortKey=key;th.style.cursor='pointer';th.setAttribute('tabindex','0');
+    th.title='点击按'+({model:'型号',available:'可用库存',not_received:'未到数量'}[key])+'排序';
+    th.setAttribute('aria-sort',itemSort.key===key?(itemSort.dir===1?'ascending':'descending'):'none');
+    th.onclick=()=>sortItemsBy(key);
+    th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sortItemsBy(key)}};
+  });
+}
 async function loadItems(){
-  const {items}=await api('/api/items');
+  let {items}=await api('/api/items');
+  if(itemSort.key){const k=itemSort.key,dir=itemSort.dir;
+    items=[...items].sort((a,b)=>{
+      const av=a[k],bv=b[k];
+      const cmp=(typeof av==='number'&&typeof bv==='number')?(av-bv):String(av).localeCompare(String(bv),'zh-CN');
+      return cmp*dir;
+    });
+  }
   const canEdit=me.is_admin||me.can_edit;
   $('#itemsBody').innerHTML=items.map(x=>`<tr data-id="${x.id}" data-category="${esc(x.category)}"><td data-field="category">${esc(x.category)}</td><td data-field="model">${esc(x.model)}</td><td data-field="description">${esc(x.description)}</td><td data-field="supplier">${esc(x.supplier)}</td><td data-field="planned">${x.planned}</td><td>${x.received}</td><td>${x.used}</td><td>${x.damaged}</td><td><b>${x.available}</b></td><td>${x.not_received}</td><td data-field="location">${esc(x.location)}</td><td data-field="owner">${esc(x.owner)}</td><td data-field="notes">${esc(x.notes)}</td><td class="row-actions">${canEdit?`<button type="button" class="secondary" onclick="startEditItem(${x.id})">编辑</button>`:''}${me.is_admin?`<button type="button" class="danger" onclick="deleteItem(${x.id})">删除</button>`:''}</td></tr>`).join('');
   fillMovementModels(items);window.allItems=items;filterItems();
   const hint=$('#emptyLedgerHint');if(hint)hint.classList.toggle('hidden',items.length>0||!me.is_admin);
+  bindItemSortHeaders();
 }
 
 function startEditItem(id){
@@ -332,10 +400,11 @@ async function saveItemEdit(id){
 
 async function deleteItem(id){
   const it=(window.allItems||[]).find(x=>x.id===id);if(!it)return;
+  if(!await uiConfirm(`确认删除物料「${it.model}」？删除前快照会写入回收站。`,'删除物料'))return;
   const attempt=confirmModel=>api('/api/items/'+id,{method:'DELETE',body:JSON.stringify(confirmModel?{confirm_model:confirmModel}:{})});
   try{
     await attempt('');
-    await loadItems();await loadMoves();return;
+    await loadItems();await loadMoves();uiToast('物料已删除，可在回收站还原。','ok');return;
   }catch(e){
     const d=e.data||{};
     if(!d.requires_confirm){uiToast(e.message);return}
@@ -580,7 +649,7 @@ function renderMovementImportPreview(d){
       <p class="hint">自动识别扫描前 30 个非空行；猜错了直接在这里改。</p></div>
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
-      <div id="movementMapping" class="import-mapping-grid">${colHtml}</div>
+      <details class="mapping-details"${d.can_import&&Object.keys(d.mapping||{}).length?'':' open'}><summary>点击调整字段对应（逐列指定 / 重新校验）</summary><div id="movementMapping" class="import-mapping-grid">${colHtml}</div></details>
       <p class="hint">必需字段只有「型号」和「入库数量」；类别自动按型号从台账带出，其他列选填。数量列名不必叫「入库数量」，在这里指定即可。</p></div>
     ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
@@ -589,7 +658,7 @@ function renderMovementImportPreview(d){
       <div class="import-pager"><button type="button" class="secondary" id="mvDeletedRestore" data-act="mv-restore">恢复已删除的行</button><span id="mvDeletedInfo" class="hint"></span><span id="mvQtyInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；删错了点「恢复已删除的行」。确认时只会写入当前预览中的行。</p>
       <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
-    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button><div id="movementImportResult" class="status" aria-live="polite"></div></div>`:''}
+    ${(d.token||d.edit_token)?`<div class="import-section import-confirm-bar"><div class="confirm-bar-meta" id="mvConfirmMeta"></div><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button><div id="movementImportResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   $('#movementImportPreview').onclick=e=>{
     const b=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
@@ -723,7 +792,7 @@ function renderGbPreview(kind,d){
       <p class="hint">自动识别会扫描前 30 个非空行；表头不在第一行或识别错了，直接在这里选。</p></div>
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
-      <div id="${cfg.mappingId}" class="import-mapping-grid">${colHtml}</div>
+      <details class="mapping-details"${d.can_import&&Object.keys(d.mapping||{}).length?'':' open'}><summary>点击调整字段对应（逐列指定 / 重新校验）</summary><div id="${cfg.mappingId}" class="import-mapping-grid">${colHtml}</div></details>
       <p class="hint">${cfg.hint}</p></div>
     ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
@@ -732,7 +801,7 @@ function renderGbPreview(kind,d){
       <div class="import-pager"><button type="button" class="secondary" id="${kind}DeletedRestore" onclick="pvRestore('gb','${kind}')">恢复已删除的行</button><span id="${kind}DeletedInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
       <div class="tablewrap preview-table"><table><thead><tr>${cfg.headers.map(h=>`<th>${esc(h)}</th>`).join('')}<th>操作</th></tr></thead><tbody id="${cfg.bodyId}"></tbody></table></div></div>
-    ${(d.token||d.edit_token)?`<div class="import-section"><button type="button" id="${cfg.confirmId}">确认导入 ${d.rows} 条</button><div id="${cfg.resultId}" class="status" aria-live="polite"></div></div>`:''}
+    ${(d.token||d.edit_token)?`<div class="import-section import-confirm-bar"><div class="confirm-bar-meta" id="${kind}ConfirmMeta"></div><button type="button" id="${cfg.confirmId}">确认导入 ${d.rows} 条</button><div id="${cfg.resultId}" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   renderGbPage(kind);pvUpdateBar('gb',kind);
   if(d.token||d.edit_token)$('#'+cfg.confirmId).onclick=()=>confirmGbImport(kind,d.token||d.edit_token);
@@ -840,17 +909,17 @@ function pvCfg(which,kind){
   if(which==='items')return {
     data:'itemImportPreviewRows',page:'importPage',size:IMPORT_PAGE_SIZE,
     collect:()=>collectVisiblePreview(),render:()=>renderImportPage(),
-    info:'#itemDeletedInfo',restore:'#itemDeletedRestore',btn:'#confirmImport',
+    info:'#itemDeletedInfo',restore:'#itemDeletedRestore',btn:'#confirmImport',meta:'#itemConfirmMeta',
     label:n=>'确认导入 '+n+' 条'};
   if(which==='movements')return {
     data:'movementImportPreviewRows',page:'mvImportPage',size:MOVEMENT_PAGE_SIZE,
     collect:()=>collectMovementVisible(),render:()=>renderMovementPage(),
-    info:'#mvDeletedInfo',restore:'#mvDeletedRestore',btn:'#movementConfirmBtn',
+    info:'#mvDeletedInfo',restore:'#mvDeletedRestore',btn:'#movementConfirmBtn',meta:'#mvConfirmMeta',
     label:n=>'确认导入 '+n+' 条入库明细'};
   const g=GB_IMPORT_CONFIG[kind];
   return {data:g.dataKey,page:g.pageKey,size:IMPORT_PAGE_SIZE,
     collect:()=>collectGbVisible(kind),render:()=>renderGbPage(kind),
-    info:'#'+kind+'DeletedInfo',restore:'#'+kind+'DeletedRestore',btn:'#'+g.confirmId,
+    info:'#'+kind+'DeletedInfo',restore:'#'+kind+'DeletedRestore',btn:'#'+g.confirmId,meta:'#'+kind+'ConfirmMeta',
     label:n=>'确认导入 '+n+' 条'};
 }
 function pvDelete(which,kind,i){
@@ -885,6 +954,17 @@ function pvUpdateBar(which,kind){
     const el=$('#mvQtyInfo');
     if(el){const miss=rows.filter(r=>!(Number(r.qty)>0)).length;
       el.textContent=rows.length?(miss?`还有 ${miss} 行未填写入库数量（需大于 0），请在下方补填或删除不需要的行。`:'数量已填写完整，可以确认导入。'):'';}
+  }
+  const meta=$(c.meta);
+  if(meta){
+    const gbCfg=(typeof GB_IMPORT_CONFIG!=='undefined'&&GB_IMPORT_CONFIG[kind]);
+    const d=which==='items'?(window.currentImportData||{}):which==='movements'?(window.mvImportData||{}):(gbCfg?(window[gbCfg.stateKey]||{}):{});
+    const errs=(d.errors||[]).length, ok=d.can_import!==false&&errs===0;
+    const parts=[`当前 ${rows.length} 行`];
+    if(n)parts.push(`已删 ${n} 行`);
+    parts.push(rows.length===0?'无可导入数据':(ok?'校验通过':(errs?`${errs} 处错误`:'待调整')));
+    meta.textContent=parts.join(' · ');
+    meta.className='confirm-bar-meta '+(rows.length===0?'is-idle':ok?'is-ok':'is-err');
   }
 }
 

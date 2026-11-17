@@ -379,6 +379,60 @@ tbody tr:hover{background:#f6fafb}
 .ui-toast.err{background:var(--danger)}
 .ui-toast.ok{background:var(--ok)}
 
+/* ---------- 导入体验：吸附确认条 / 折叠映射 / 空状态 ---------- */
+.import-collapse>summary{
+  cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;
+  padding:2px 0;
+}
+.import-collapse>summary::-webkit-details-marker{display:none}
+.import-collapse>summary h2{margin:0}
+.import-collapse>summary::before{
+  content:"▸";color:var(--brand);font-size:14px;transition:transform .15s;
+}
+.import-collapse[open]>summary::before{transform:rotate(90deg)}
+.import-collapse>summary .hint{color:var(--brand);font-weight:500}
+.import-collapse-body{padding-top:12px}
+.import-collapse-body>.hint{margin-top:0}
+
+.mapping-details{margin:8px 0}
+.mapping-details>summary{
+  cursor:pointer;color:var(--brand);font-weight:600;font-size:13px;
+  padding:6px 10px;background:var(--brand-soft);border:1px solid var(--line);
+  border-radius:var(--r);display:inline-block;list-style:none;
+}
+.mapping-details>summary::-webkit-details-marker{display:none}
+.mapping-details>summary::before{content:"⚙ ";font-size:12px}
+.mapping-details[open]>summary{margin-bottom:10px}
+
+.import-confirm-bar{
+  position:sticky;bottom:0;z-index:5;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin:14px -20px -20px;padding:12px 20px;
+  background:var(--surface);border-top:1px solid var(--line-strong);
+  box-shadow:0 -6px 16px rgba(16,35,44,.06);
+  border-radius:0 0 var(--r-lg) var(--r-lg);
+}
+.import-confirm-bar>button{margin-left:auto;min-width:150px}
+.import-confirm-bar .status{flex-basis:100%;margin:0}
+.confirm-bar-meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.confirm-bar-meta.is-ok{color:var(--ok)}
+.confirm-bar-meta.is-err{color:var(--danger)}
+
+.filter-empty{text-align:center;color:var(--muted);padding:22px!important}
+.linklike{background:none;border:0;color:var(--brand);cursor:pointer;text-decoration:underline;padding:0;font-size:inherit}
+.linklike:hover{color:var(--brand-deep)}
+
+thead th[data-sort-key]{cursor:pointer;user-select:none}
+thead th[data-sort-key]:hover{color:var(--brand)}
+thead th[aria-sort="ascending"]::after{content:" ▲";font-size:9px;color:var(--brand)}
+thead th[aria-sort="descending"]::after{content:" ▼";font-size:9px;color:var(--brand)}
+thead th[data-sort-key]:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+
+.component-empty-notice{
+  margin:10px 0;padding:10px 12px;background:var(--warn-soft,#fff6e8);
+  border:1px solid var(--line);border-radius:var(--r);color:var(--ink-2);font-size:13px;
+}
+
 /* ---------- 响应式：320 / 390 / 768 / 1024 都不横向溢出 ---------- */
 @media(max-width:1024px){
   .wrap{padding:20px 16px 48px}
@@ -395,6 +449,17 @@ tbody tr:hover{background:#f6fafb}
   .card{padding:16px}
   .tabs{margin-bottom:14px}
   .tabs button{padding:10px 12px}
+}
+@media(max-width:800px){
+  /* 导航可横向滑动，两端渐隐提示还有更多标签 */
+  .tabs{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
+        mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+  /* 台账首列固定，横向滚动时始终能看到型号 */
+  #items table th:first-child,#items table td:first-child{
+    position:sticky;left:0;background:var(--surface);z-index:2;
+    box-shadow:1px 0 0 var(--line);
+  }
+  #items table thead th:first-child{z-index:3;background:var(--surface-2)}
 }
 @media(max-width:480px){
   button{min-height:40px}
