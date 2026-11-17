@@ -5,6 +5,7 @@
 也不依赖外部冒烟脚本（那些不在仓库里）。
 """
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -51,9 +52,13 @@ class TestImportPreview(unittest.TestCase):
 
 class TestMovementForm(unittest.TestCase):
     def test_date_defaults_today(self):
+        # 不 grep 失效路径：真实执行 setUser()，覆盖 setup/login/会话恢复三条路径
         self.assertRegex(HTML, r'<form id="moveForm"[^>]*novalidate')
-        self.assertIn('function todayStr()', JS)
-        self.assertIn('setUser(r);initMoveDate()', JS)
+        r = subprocess.run(
+            ['node', str(REPO / 'tests' / '_verify_setuser.js'), str(REPO / 'static' / 'app.js')],
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('三条路径均默认今天', r.stdout)
 
     def test_inline_required_hint(self):
         self.assertIn('请填写：', JS)
@@ -71,8 +76,20 @@ class TestItemTable(unittest.TestCase):
         self.assertIn('function clearItemFilter()', JS)
 
     def test_sortable_columns(self):
-        self.assertIn("1:'model',8:'available',9:'not_received'", JS)
+        # 表头用 data-sort-key 声明，JS 按属性查找，不再硬编码列序号
+        self.assertIn('data-sort-key="model"', HTML)
+        self.assertIn('data-sort-key="available"', HTML)
+        self.assertIn('data-sort-key="not_received"', HTML)
+        self.assertIn("querySelectorAll('#items thead th[data-sort-key]')", JS)
         self.assertIn("setAttribute('aria-sort'", JS)
+        # colspan 常量必须与表头实际列数一致，否则加列时测试应红
+        m = re.search(r'const ITEM_COL_COUNT=(\d+)', JS)
+        self.assertTrue(m, '应定义 ITEM_COL_COUNT 常量')
+        # 精确数台账表头列数：从 <table> 到 itemsBody 之间的 <th>
+        seg = HTML[HTML.rfind('<table', 0, HTML.index('id="itemsBody"')):HTML.index('id="itemsBody"')]
+        th_count = len(re.findall(r'<th[ >]', seg))
+        self.assertEqual(int(m.group(1)), th_count,
+                         'ITEM_COL_COUNT 与台账表头列数不一致（加列后需同步）')
 
 
 class TestRackAndAccessibility(unittest.TestCase):
@@ -81,14 +98,17 @@ class TestRackAndAccessibility(unittest.TestCase):
         self.assertIn('function goImportServerComponents()', JS)
 
     def test_labels_bound_to_controls(self):
-        labels = re.findall(r'<label[^>]*>', HTML)
-        with_for = [l for l in labels if re.search(r'\bfor=', l)]
-        self.assertEqual(len(with_for), 31, '31 个显式 label 都应有 for')
         ids = re.findall(r'\bid="([^"]+)"', HTML)
-        fors = re.findall(r'<label[^>]*\bfor="([^"]+)"', HTML)
-        for f in fors:
-            self.assertIn(f, ids, 'for=%s 指向的 id 不存在' % f)
         self.assertEqual(len(ids), len(set(ids)), '不应有重复 id')
+        # 每个 label 要么 for 指向存在的 id，要么自身包裹控件（隐式关联）
+        for m in re.finditer(r'<label([^>]*)>(.*?)</label>', HTML, re.S):
+            attrs, inner = m.group(1), m.group(2)
+            fm = re.search(r'\bfor="([^"]+)"', attrs)
+            if fm:
+                self.assertIn(fm.group(1), ids, 'for=%s 指向的 id 不存在' % fm.group(1))
+            else:
+                self.assertTrue(re.search(r'<(input|select|textarea)\b', inner),
+                                '无 for 的 label 必须包裹控件：' + m.group(0)[:80])
 
     def test_mobile_nav_and_sticky_col(self):
         self.assertRegex(CSS, r'\.tabs\{[^}]*mask-image', re.S)

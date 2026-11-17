@@ -4,9 +4,12 @@
 关键：必须在 import app 之前设置 IDC_DB / IDC_PORT，因为 config 在导入时
 读取这些环境变量。每个测试类通过 start_server() 拿到 (base_url, db_path)。
 """
+import atexit
+import gc
 import http.client
 import json
 import os
+import shutil
 import sqlite3
 import tempfile
 import threading
@@ -16,6 +19,14 @@ import urllib.error
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+_PENDING_TMP = []
+
+def _cleanup_pending():
+    for d in list(_PENDING_TMP):
+        shutil.rmtree(d, ignore_errors=True)
+        try: _PENDING_TMP.remove(d)
+        except ValueError: pass
+atexit.register(_cleanup_pending)
 
 
 def call(method, path, port, body=None, headers=None, timeout=15):
@@ -72,6 +83,9 @@ class LiveServer(object):
         return port
 
     def start(self):
+        _cleanup_pending()  # 清掉同进程内上一次残留的临时目录
+        self._old_cwd = os.getcwd()
+        self._old_env = {k: os.environ.get(k) for k in ('IDC_DB', 'IDC_PORT', 'IDC_HOST')}
         os.environ['IDC_DB'] = self.db_path
         os.environ['IDC_PORT'] = str(self.port)
         os.environ['IDC_HOST'] = '127.0.0.1'
@@ -83,6 +97,8 @@ class LiveServer(object):
                 del sys.modules[name]
         import app
         self.app = app
+        # 静音 BaseHTTPRequestHandler 的逐请求日志，避免淹没 CI 输出
+        app.Handler.log_message = lambda self, fmt, *args, **kwargs: None
         app.init()
         from http.server import ThreadingHTTPServer
         self.httpd = ThreadingHTTPServer(('127.0.0.1', self.port), app.Handler)
@@ -98,6 +114,22 @@ class LiveServer(object):
             self.httpd.server_close()
         except Exception:
             pass
+        try:
+            self.thread.join(timeout=3)
+        except Exception:
+            pass
+        if getattr(self, '_old_cwd', None):
+            try: os.chdir(self._old_cwd)
+            except Exception: pass
+        for k, v in getattr(self, '_old_env', {}).items():
+            if v is None: os.environ.pop(k, None)
+            else: os.environ[k] = v
+        # Windows 下 SQLite 文件可能被进程内连接占用，先回收再删；
+        # 仍失败则登记 atexit，进程退出时兜底清理。
+        gc.collect()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        if os.path.exists(self.tmp) and self.tmp not in _PENDING_TMP:
+            _PENDING_TMP.append(self.tmp)
 
     def admin(self):
         """执行初始化+登录，返回 (sid, csrf)。"""

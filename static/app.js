@@ -7,7 +7,7 @@ async function start(){
   try{
     let status=await api('/api/status');
     if(status.setup_required)return showAuth(true);
-    let r=await api('/api/me');setUser(r);initMoveDate();await refresh();
+    let r=await api('/api/me');setUser(r);await refresh();
     const box=$('#bootError');if(box)box.classList.add('hidden');
   }catch(e){
     if(e&&e.status>=401&&e.status<500)return showAuth(false); // 明确未登录
@@ -19,7 +19,7 @@ async function start(){
     }
   }
 }
-function setUser(u){me=u;csrf=u.csrf;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#who').innerHTML=`${esc(u.username)} <span class="badge">${u.is_admin?'管理员':(u.can_edit?'协管员 · 编辑':'协管员 · 查看')}</span>`;$('#usersTab').classList.toggle('hidden',!u.is_admin);$('#recycleTab').classList.toggle('hidden',!u.is_admin);$('#itemFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#importCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#moveFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#movementImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverComponentImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);document.querySelectorAll('.serverActionHeader').forEach(el=>el.classList.toggle('hidden',!u.can_edit&&!u.is_admin));$('#itemActionHeader').classList.toggle('hidden',!u.is_admin&&!u.can_edit);$('#movementActionHeader').classList.toggle('hidden',!u.is_admin)}
+function setUser(u){me=u;csrf=u.csrf;$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#who').innerHTML=`${esc(u.username)} <span class="badge">${u.is_admin?'管理员':(u.can_edit?'协管员 · 编辑':'协管员 · 查看')}</span>`;$('#usersTab').classList.toggle('hidden',!u.is_admin);$('#recycleTab').classList.toggle('hidden',!u.is_admin);$('#itemFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#importCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#moveFormCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#movementImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);$('#serverComponentImportCard').classList.toggle('hidden',!u.can_edit&&!u.is_admin);document.querySelectorAll('.serverActionHeader').forEach(el=>el.classList.toggle('hidden',!u.can_edit&&!u.is_admin));$('#itemActionHeader').classList.toggle('hidden',!u.is_admin&&!u.can_edit);$('#movementActionHeader').classList.toggle('hidden',!u.is_admin);initMoveDate()}
 $('#authForm').onsubmit=async e=>{e.preventDefault();$('#authMsg').textContent='';let f=new FormData(e.target),payload=Object.fromEntries(f);try{let u=await api(e.target.dataset.setup?'/api/setup':'/api/login',{method:'POST',body:JSON.stringify(payload)});setUser(u);await refresh()}catch(err){$('#authMsg').textContent=err.message}};
 async function refresh(){await loadItems();await loadMoves();await loadServers();await loadSpares();if(me.is_admin)await loadUsers()}
 let editingMovementId=null;
@@ -49,7 +49,7 @@ $('#moveForm').onsubmit=async e=>{
   const f=e.target,p=Object.fromEntries(new FormData(f));
   const miss=[];
   if(!p.moved_at)miss.push('日期');
-  if(!p.qty||!(Number(p.qty)>0))miss.push('数量（需大于 0 的整数）');
+  if(!p.qty||!Number.isInteger(Number(p.qty))||!(Number(p.qty)>0))miss.push('数量（需大于 0 的整数）');
   if(!p.model)miss.push('型号');
   if(miss.length){$('#moveMsg').textContent='请填写：'+miss.join('、');return}
   $('#moveMsg').textContent='';
@@ -68,8 +68,8 @@ function filterItems(){
   }
   let hint=body.querySelector('[data-filter-hint]');
   if(shown===0&&total>0){
-    if(!hint){hint=document.createElement('tr');hint.dataset.filterHint='1';hint.innerHTML='<td colspan="14" class="filter-empty">没有匹配的物料 · 共 '+total+' 条，匹配 0 条。 <button type="button" class="linklike" onclick="clearItemFilter()">清除筛选</button></td>';body.appendChild(hint)}
-    else hint.innerHTML='<td colspan="14" class="filter-empty">没有匹配的物料 · 共 '+total+' 条，匹配 0 条。 <button type="button" class="linklike" onclick="clearItemFilter()">清除筛选</button></td>';
+    if(!hint){hint=document.createElement('tr');hint.dataset.filterHint='1';hint.innerHTML='<td colspan="'+ITEM_COL_COUNT+'" class="filter-empty">没有匹配的物料 · 共 '+total+' 条，匹配 0 条。 <button type="button" class="linklike" onclick="clearItemFilter()">清除筛选</button></td>';body.appendChild(hint)}
+    else hint.innerHTML='<td colspan="'+ITEM_COL_COUNT+'" class="filter-empty">没有匹配的物料 · 共 '+total+' 条，匹配 0 条。 <button type="button" class="linklike" onclick="clearItemFilter()">清除筛选</button></td>';
     hint.hidden=false;
   }else if(hint)hint.hidden=true;
 }
@@ -341,18 +341,22 @@ $('#importForm').onsubmit=async e=>{
   }catch(err){$('#importMsg').textContent=err.message}
 };
 
+const ITEM_COL_COUNT=14; // 与 index.html 台账表头列数一致，测试会校验
 let itemSort={key:null,dir:1};
 function sortItemsBy(key){
+  const body=$('#itemsBody');
+  if(body&&body.querySelector('[data-edit]')){
+    uiToast('请先保存或取消正在编辑的行，再点击排序。');return;
+  }
   if(itemSort.key===key)itemSort.dir=-itemSort.dir;
   else itemSort={key,dir:1};
   loadItems();
 }
 function bindItemSortHeaders(){
-  const ths=document.querySelectorAll('#items thead th');
-  const map={1:'model',8:'available',9:'not_received'};
-  Object.entries(map).forEach(([idx,key])=>{
-    const th=ths[Number(idx)];if(!th)return;
-    th.dataset.sortKey=key;th.style.cursor='pointer';th.setAttribute('tabindex','0');
+  const ths=document.querySelectorAll('#items thead th[data-sort-key]');
+  ths.forEach(th=>{
+    const key=th.dataset.sortKey;if(!key)return;
+    th.style.cursor='pointer';th.setAttribute('tabindex','0');
     th.title='点击按'+({model:'型号',available:'可用库存',not_received:'未到数量'}[key])+'排序';
     th.setAttribute('aria-sort',itemSort.key===key?(itemSort.dir===1?'ascending':'descending'):'none');
     th.onclick=()=>sortItemsBy(key);
