@@ -96,7 +96,7 @@ class TestItemTable(unittest.TestCase):
 
 class TestRackAndAccessibility(unittest.TestCase):
     def test_empty_components_guidance(self):
-        self.assertIn('还没有 46U 部件数据', JS)
+        self.assertIn('component-empty-notice', JS)  # 只断言结构，文案可精简
         self.assertIn('function goImportServerComponents()', JS)
 
     def test_labels_bound_to_controls(self):

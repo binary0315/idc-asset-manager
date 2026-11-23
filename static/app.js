@@ -92,9 +92,9 @@ async function logout(){
 
 async function loadSpares(){window.spareData=await api('/api/spares');renderSpareMaterials();renderMaterialSpares();renderServerSpares()}
 function renderSpareMaterials(){let d=window.spareData||{materials:[]},q=($('#spareMaterialSearch').value||'').trim().toLowerCase(),items=d.materials.filter(x=>`${x.category} ${x.model} ${x.description}`.toLowerCase().includes(q)),available=items.reduce((a,x)=>a+Math.max(0,x.available),0),damaged=items.reduce((a,x)=>a+x.damaged,0),pending=(d.material_spares||[]).filter(x=>x.status==='待处理').length;$('#spareMaterialStats').innerHTML=`<div class="server-stat"><b>${items.length}</b><span>种型号</span></div><div class="server-stat"><b>${available}</b><span>可用库存</span></div><div class="server-stat"><b>${damaged}</b><span>累计报废</span></div><div class="server-stat"><b>${pending}</b><span>待补SN坏件</span></div>`;$('#spareMaterialsBody').innerHTML=items.map(x=>`<tr><td>${esc(x.category)}</td><td>${esc(x.model)}</td><td>${esc(x.description)}</td><td><b>${x.available}</b></td><td>${x.damaged}</td></tr>`).join('')||'<tr><td colspan="5" class="hint">暂无库存或报废物料</td></tr>'}
-function renderMaterialSpares(){let d=window.spareData||{material_spares:[],material_statuses:[]},filter=$('#materialSpareFilter').value,search=($('#spareMaterialSearch').value||'').trim().toLowerCase(),rows=(d.material_spares||[]).filter(x=>(!filter||x.status===filter)&&(`${x.category} ${x.model} ${x.description}`.toLowerCase().includes(search))),canEdit=me&&(me.can_edit||me.is_admin);if($('#materialSpareFilter').options.length===1)for(let state of d.material_statuses)$('#materialSpareFilter').add(new Option(state,state));$('#materialSparesBody').innerHTML=rows.map(x=>{let options=d.material_statuses.filter(state=>state!=='待处理').map(state=>`<option ${state===x.status?'selected':''}>${esc(state)}</option>`).join(''),history=x.history.map(h=>`<li><span>${esc(h.old_serial_number||'（未录SN）')} → ${esc(h.serial_number)} · ${esc(h.from_status)} → ${esc(h.to_status)}</span><small>操作账号：${esc(h.operator_username||'未知')} · 实际操作人：${esc(h.responsible||'')} · ${esc(h.operated_at)}${h.notes?' · '+esc(h.notes):''}</small></li>`).join(''),source=x.source_location||'—';return `<tr data-material-spare="${x.id}"><td>${esc(x.moved_at||'')}</td><td>${esc(x.category)} / <code>${esc(x.model)}</code></td><td>${x.unit_index} / 来源单 #${x.movement_id||'—'}</td><td>${canEdit?`<input name="serial_number" value="${esc(x.serial_number)}" placeholder="待处理时必填SN">`:esc(x.serial_number||'待补录')}</td><td>${canEdit?`<select name="status"><option value="待处理" ${x.status==='待处理'?'selected':''}>待处理</option>${options}</select>`:`<span class="badge">${esc(x.status)}</span>`}</td><td>${esc(source)} / ${esc(x.source_owner||'')}</td><td>${canEdit?`<input name="responsible" value="${esc(x.responsible)}" placeholder="实际操作人">`:esc(x.responsible||'')}</td><td>${canEdit?`<input name="notes" value="${esc(x.notes)}" placeholder="备注">`:esc(x.notes)}</td><td>${canEdit?`<button class="secondary" onclick="saveMaterialSpare(${x.id})">保存</button> `:''}<details><summary>历史（${x.history.length}）</summary><ol>${history||'<li>暂无处理历史</li>'}</ol></details></td></tr>`}).join('')||'<tr><td colspan="9" class="hint">暂无报废坏件；从库存变动明细登记报废后会自动出现在这里。</td></tr>'}
+function renderMaterialSpares(){let d=window.spareData||{material_spares:[],material_statuses:[]},filter=$('#materialSpareFilter').value,search=($('#spareMaterialSearch').value||'').trim().toLowerCase(),rows=(d.material_spares||[]).filter(x=>(!filter||x.status===filter)&&(`${x.category} ${x.model} ${x.description}`.toLowerCase().includes(search))),canEdit=me&&(me.can_edit||me.is_admin);if($('#materialSpareFilter').options.length===1)for(let state of d.material_statuses)$('#materialSpareFilter').add(new Option(state,state));$('#materialSparesBody').innerHTML=rows.map(x=>{let options=d.material_statuses.filter(state=>state!=='待处理').map(state=>`<option ${state===x.status?'selected':''}>${esc(state)}</option>`).join(''),history=x.history.map(h=>`<li><span>${esc(h.old_serial_number||'（未录SN）')} → ${esc(h.serial_number)} · ${esc(h.from_status)} → ${esc(h.to_status)}</span><small>操作账号：${esc(h.operator_username||'未知')} · 实际操作人：${esc(h.responsible||'')} · ${esc(h.operated_at)}${h.notes?' · '+esc(h.notes):''}</small></li>`).join(''),source=x.source_location||'—';return `<tr data-material-spare="${x.id}"><td>${esc(x.moved_at||'')}</td><td>${esc(x.category)} / <code>${esc(x.model)}</code></td><td>${x.unit_index} / 来源单 #${x.movement_id||'—'}</td><td>${canEdit?`<input name="serial_number" value="${esc(x.serial_number)}" placeholder="待处理时必填SN">`:esc(x.serial_number||'待补录')}</td><td>${canEdit?`<select name="status"><option value="待处理" ${x.status==='待处理'?'selected':''}>待处理</option>${options}</select>`:`<span class="badge">${esc(x.status)}</span>`}</td><td>${esc(source)} / ${esc(x.source_owner||'')}</td><td>${canEdit?`<input name="responsible" value="${esc(x.responsible)}" placeholder="实际操作人">`:esc(x.responsible||'')}</td><td>${canEdit?`<input name="notes" value="${esc(x.notes)}" placeholder="备注">`:esc(x.notes)}</td><td>${canEdit?`<button class="secondary" onclick="saveMaterialSpare(${x.id})">保存</button> `:''}<details><summary>历史（${x.history.length}）</summary><ol>${history||'<li>暂无处理历史</li>'}</ol></details></td></tr>`}).join('')||'<tr><td colspan="9" class="hint">暂无坏件；登记报废后自动出现。</td></tr>'}
 async function saveMaterialSpare(id){let tr=`#materialSparesBody tr[data-material-spare="${id}"]`;let row=$(tr);try{await api('/api/material-spares/'+id,{method:'PATCH',body:JSON.stringify({serial_number:row.querySelector('[name="serial_number"]').value.trim(),status:row.querySelector('[name="status"]').value,responsible:row.querySelector('[name="responsible"]').value.trim(),notes:row.querySelector('[name="notes"]').value.trim()})});await loadSpares()}catch(e){uiToast(e.message)}}
-function renderServerSpares(){let d=window.spareData||{server_spares:[],statuses:[]},filter=$('#serverSpareFilter').value,rows=d.server_spares.filter(x=>!filter||x.status===filter),canEdit=me&&(me.can_edit||me.is_admin),isAdmin=me&&me.is_admin;if($('#serverSpareFilter').options.length===1)for(let state of d.statuses)$('#serverSpareFilter').add(new Option(state,state));let counts=Object.fromEntries(d.statuses.map(state=>[state,d.server_spares.filter(x=>x.status===state).length])),orphanCount=d.server_spares.filter(x=>x.orphan).length;$('#serverSpareStats').innerHTML=`<div class="server-stat"><b>${d.server_spares.length}</b><span>更换部件</span></div><div class="server-stat"><b>${counts['待检测']||0}</b><span>待检测</span></div><div class="server-stat"><b>${counts['待RMA']||0}</b><span>待RMA</span></div><div class="server-stat"><b>${counts['报废']||0}</b><span>报废</span></div><div class="server-stat"><b>${orphanCount}</b><span>已归档（原服务器已删除）</span></div>`;$('#serverSparesBody').innerHTML=rows.map(x=>{let opts=d.statuses.map(state=>`<option ${state===x.status?'selected':''}>${esc(state)}</option>`).join(''),history=(x.history||[]).map(h=>`<li><span>${esc(h.from_status)} → ${esc(h.to_status)}</span><small>操作账号：${esc(h.operator_username||'未知')} · 实际操作人：${esc(h.responsible)} · ${esc(h.operated_at)}${h.notes?' · '+esc(h.notes):''}</small></li>`).join(''),snCell=`<code>${esc(x.current_sn||x.server_sn)}</code>${x.orphan?' <span class="badge">原服务器已删除</span>':''}`,delBtn=(isAdmin&&x.orphan)?`<button class="secondary danger" onclick="deleteServerSpare(${x.id})">彻底删除</button> `:'';return `<tr data-spare-id="${x.id}"><td>${esc(x.room)} / ${esc(x.rack)}</td><td>${snCell}</td><td>U${x.node_u}</td><td>${esc(x.kp_name)}</td><td><code>${esc(x.node_sn)}</code></td><td>${canEdit?`<select name="status">${opts}</select>`:`<span class="badge">${esc(x.status)}</span>`}</td><td>${canEdit?`<input name="responsible" value="${esc(x.responsible)}" placeholder="实际操作人">`:esc(x.responsible)}</td><td>${canEdit?`<input name="notes" value="${esc(x.notes)}" placeholder="备注（最多 500 字）">`:esc(x.notes)}</td><td>${canEdit?`<button class="secondary" onclick="saveServerSpare(${x.id})">保存</button> `:''}${delBtn}<details><summary>历史（${(x.history||[]).length}）</summary><ol>${history||'<li>暂无状态历史</li>'}</ol></details></td></tr>`}).join('')||'<tr><td colspan="9" class="hint">暂时没有服务器更换部件；更换任意有 SN 的 U 位部件后，旧 SN 会自动登记。</td></tr>'}
+function renderServerSpares(){let d=window.spareData||{server_spares:[],statuses:[]},filter=$('#serverSpareFilter').value,rows=d.server_spares.filter(x=>!filter||x.status===filter),canEdit=me&&(me.can_edit||me.is_admin),isAdmin=me&&me.is_admin;if($('#serverSpareFilter').options.length===1)for(let state of d.statuses)$('#serverSpareFilter').add(new Option(state,state));let counts=Object.fromEntries(d.statuses.map(state=>[state,d.server_spares.filter(x=>x.status===state).length])),orphanCount=d.server_spares.filter(x=>x.orphan).length;$('#serverSpareStats').innerHTML=`<div class="server-stat"><b>${d.server_spares.length}</b><span>更换部件</span></div><div class="server-stat"><b>${counts['待检测']||0}</b><span>待检测</span></div><div class="server-stat"><b>${counts['待RMA']||0}</b><span>待RMA</span></div><div class="server-stat"><b>${counts['报废']||0}</b><span>报废</span></div><div class="server-stat"><b>${orphanCount}</b><span>已归档（原服务器已删除）</span></div>`;$('#serverSparesBody').innerHTML=rows.map(x=>{let opts=d.statuses.map(state=>`<option ${state===x.status?'selected':''}>${esc(state)}</option>`).join(''),history=(x.history||[]).map(h=>`<li><span>${esc(h.from_status)} → ${esc(h.to_status)}</span><small>操作账号：${esc(h.operator_username||'未知')} · 实际操作人：${esc(h.responsible)} · ${esc(h.operated_at)}${h.notes?' · '+esc(h.notes):''}</small></li>`).join(''),snCell=`<code>${esc(x.current_sn||x.server_sn)}</code>${x.orphan?' <span class="badge">原服务器已删除</span>':''}`,delBtn=(isAdmin&&x.orphan)?`<button class="secondary danger" onclick="deleteServerSpare(${x.id})">彻底删除</button> `:'';return `<tr data-spare-id="${x.id}"><td>${esc(x.room)} / ${esc(x.rack)}</td><td>${snCell}</td><td>U${x.node_u}</td><td>${esc(x.kp_name)}</td><td><code>${esc(x.node_sn)}</code></td><td>${canEdit?`<select name="status">${opts}</select>`:`<span class="badge">${esc(x.status)}</span>`}</td><td>${canEdit?`<input name="responsible" value="${esc(x.responsible)}" placeholder="实际操作人">`:esc(x.responsible)}</td><td>${canEdit?`<input name="notes" value="${esc(x.notes)}" placeholder="备注（最多 500 字）">`:esc(x.notes)}</td><td>${canEdit?`<button class="secondary" onclick="saveServerSpare(${x.id})">保存</button> `:''}${delBtn}<details><summary>历史（${(x.history||[]).length}）</summary><ol>${history||'<li>暂无状态历史</li>'}</ol></details></td></tr>`}).join('')||'<tr><td colspan="9" class="hint">暂无备件；部件更换后自动登记。</td></tr>'}
 async function saveServerSpare(id){let tr=`#serverSparesBody tr[data-spare-id="${id}"]`,row=$(tr);try{await api('/api/server-spares/'+id,{method:'PATCH',body:JSON.stringify({status:row.querySelector('[name="status"]').value,responsible:row.querySelector('[name="responsible"]').value.trim(),notes:row.querySelector('[name="notes"]').value.trim()})});await loadSpares()}catch(e){uiToast(e.message)}}
 $('#spareMaterialSearch').oninput=()=>{renderSpareMaterials();renderMaterialSpares()};$('#materialSpareFilter').onchange=renderMaterialSpares;$('#serverSpareFilter').onchange=renderServerSpares;
 async function loadServers(){let {servers}=await api('/api/servers');window.allServers=servers;renderServerMap()}
@@ -108,7 +108,7 @@ const serverFieldLabels={room:'机房/房间',rack:'机柜位置',sn:'SN'};
 $('#serverImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#serverImportMsg').textContent='正在识别并校验服务器表…';$('#serverImportPreview').innerHTML='';try{let r=await fetch('/api/import-servers-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');renderServerImportPreview(d)}catch(err){$('#serverImportMsg').textContent=err.message}};
 function renderServerImportPreview(d){renderGbPreview('servers',d)}
 async function confirmServerImport(token){return confirmGbImport('servers',token)}
-const serverComponentFieldLabels={server_sn:'服务器 SN',node_sn:'部件 NODE_SN',node:'NODE / U 位',kp_name:'KP_NAME',bmc_mac:'BMC_MAC'};
+const serverComponentFieldLabels={server_sn:'服务器 SN',node_sn:'部件 NODE_SN',node:'NODE / U 位',kp_name:'料号(KP_NAME)',bmc_mac:'BMC_MAC'};
 $('#serverComponentImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#serverComponentImportMsg').textContent='正在识别并校验 46U 部件清单…';$('#serverComponentImportPreview').innerHTML='';try{let r=await fetch('/api/import-server-components-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取部件表');renderServerComponentImportPreview(d)}catch(err){$('#serverComponentImportMsg').textContent=err.message}};
 function renderServerComponentImportPreview(d){renderGbPreview('components',d)}
 async function confirmServerComponentImport(token){return confirmGbImport('components',token)}
@@ -127,7 +127,7 @@ function renderServerComponentStack(server,components,operations=[]){
   let content=x?'<div class="u-component"><strong>'+esc(x.kp_name)+'</strong><span><b>NODE_SN</b> <code>'+esc(x.node_sn)+'</code></span><span><b>BMC_MAC</b> <code>'+esc(x.bmc_mac||'—')+'</code></span></div>':'<span class="u-empty-label">空位</span>';
   return '<div class="u-slot '+(x?'filled':'empty')+'"><span class="u-number">U'+u+'</span><div class="u-main">'+content+opText+'</div>'+(canEdit&&x?'<button class="secondary u-edit" data-server="'+server.id+'" data-component="'+x.id+'" data-u="'+u+'">编辑 / 更换 SN</button>':'')+'</div>'
  }).join('');
- const emptyNotice=components.length===0?'<div class="component-empty-notice">该 SN 还没有 46U 部件数据，46 个 U 位显示为空位属正常。 <button type="button" class="linklike" onclick="goImportServerComponents()">去导入部件明细</button></div>':'';
+ const emptyNotice=components.length===0?'<div class="component-empty-notice">该 SN 无部件数据；46 个 U 位为空属正常。 <button type="button" class="linklike" onclick="goImportServerComponents()">去导入部件明细</button></div>':'';
  return '<section class="component-device"><div class="component-device-title"><div><strong>GB300 · '+esc(server.sn)+'</strong><span>'+esc(server.room)+' / '+esc(server.rack)+'</span></div><span>'+components.length+' / 46 U</span></div>'+emptyNotice+'<div class="u-stack">'+slots+'</div></section>'
 }
 function goImportServerComponents(){
@@ -138,7 +138,7 @@ function goImportServerComponents(){
 }
 
 async function openRack(room,rack){let rows=(window.allServers||[]).filter(x=>x.room===room&&x.rack===rack);$('#rackDialog').dataset.room=room;$('#rackDialog').dataset.rack=rack;$('#rackDialogTitle').textContent=room+' · '+rack+' · 46U';$('#rackDialogSummary').textContent='GB300 服务器 · '+rows.length+' 台';$('#rackDialogBody').innerHTML='<p class="hint">正在读取设备信息…</p>';$('#rackDialog').showModal();try{let detail=await Promise.all(rows.map(x=>api('/api/servers/'+x.id+'/components')));$('#rackDialogBody').innerHTML=detail.map(x=>renderServerComponentStack(x.server,x.components,x.operations)).join('');$('#rackDialogBody').querySelectorAll('.u-edit').forEach(btn=>btn.onclick=()=>{let d=detail.find(x=>String(x.server.id)===btn.dataset.server),component=d.components.find(x=>String(x.id)===btn.dataset.component);openComponentEditor(d.server,component,Number(btn.dataset.u))})}catch(e){$('#rackDialogBody').innerHTML='<p class="import-errors">设备信息读取失败：'+esc(e.message)+'</p>'}}
-function openComponentEditor(server,component,u){let f=$('#componentEditForm');f.reset();f.dataset.componentId=component.id;f.elements.node_sn.value=component.node_sn;f.elements.responsible.value=me?.username||'';$('#componentEditU').value='U'+component.node_u;$('#componentEditKp').value=component.kp_name;$('#componentEditTitle').textContent='编辑 / 更换 U'+u+' 的 NODE_SN';$('#componentEditAction').value='部件更换';$('#componentEditMsg').textContent='更换会把原 NODE_SN 自动登记为服务器备件；信息修正仅用于更正录入错误。U 位、KP_NAME 和 BMC_MAC 固定不变。';$('#componentEditDialog').showModal()}
+function openComponentEditor(server,component,u){let f=$('#componentEditForm');f.reset();f.dataset.componentId=component.id;f.elements.node_sn.value=component.node_sn;f.elements.responsible.value=me?.username||'';$('#componentEditU').value='U'+component.node_u;$('#componentEditKp').value=component.kp_name;$('#componentEditTitle').textContent='编辑 / 更换 U'+u+' 的 NODE_SN';$('#componentEditAction').value='部件更换';$('#componentEditMsg').textContent='“部件更换”会把旧 SN 登记为备件；信息修正仅改录入错误。';$('#componentEditDialog').showModal()}
 $('#componentEditForm').onsubmit=async e=>{e.preventDefault();let f=e.target,payload={node_sn:f.elements.node_sn.value.trim(),responsible:f.elements.responsible.value.trim(),action:$('#componentEditAction').value};try{await api('/api/server-components/'+f.dataset.componentId,{method:'PATCH',body:JSON.stringify(payload)});$('#componentEditDialog').close();await openRack($('#rackDialog').dataset.room,$('#rackDialog').dataset.rack)}catch(err){$('#componentEditMsg').textContent=err.message}}
 $('#serverSearch').oninput=renderServerMap;$('#serverBackButton').onclick=()=>{selectedServerRoom=null;renderServerMap()};$('#rackDialog').onclick=e=>{if(e.target===$('#rackDialog'))$('#rackDialog').close()};
 start();
@@ -262,22 +262,22 @@ function renderImportPreview(d){
   const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(importFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' ');
   const verb=mode==='update'?'确认更新':'确认导入';
-  $('#importMsg').textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'校验通过，可'+(mode==='update'?'更新':'导入')+'。':'请调整下面的表头行或字段对应后重新校验。'}`;
+  $('#importMsg').textContent=`第 ${d.header_row} 行为表头，共 ${d.rows} 条；${d.can_import?'校验通过':'请调整表头或字段'}。`;
   $('#importPreview').innerHTML=`<div class="card">
     <div class="import-section"><b>① 表头所在行</b>
       <div class="map-row"><select id="importHeaderRow">${headerOpts||`<option value="${d.header_row}">第 ${d.header_row} 行</option>`}</select><button type="button" class="secondary" onclick="applyImportMapping()">应用修改并重新校验</button></div>
-      <p class="hint">自动识别会扫描前 30 个非空行。表头不在第一行、或识别错了，直接在这里选。</p></div>
+      <p class="hint">表头不在首行时在此选择。</p></div>
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
       <details class="mapping-details"${d.can_import&&Object.keys(d.mapping||{}).length?'':' open'}><summary>点击调整字段对应（逐列指定 / 重新校验）</summary><div id="importMapping" class="import-mapping-grid">${colHtml}</div></details>
-      <p class="hint">${mode==='create'?'新增模式必需：型号、名称/规格；计划数量可留空（预览补填，默认 0）；类别可用整批默认值。':'更新模式必需：型号（作为匹配键，不可修改）；未提供的列保留台账现值。'}</p></div>
-    ${d.suggest_import==='movements'?`<p class="import-errors"><b>可能选错导入类型</b>：这份表含库存变动特征列。若要登记入库，请到「库存变动明细」页面重新上传同一个 Excel；当前物料台账导入不会写入这些数量。</p>`:''}
+      <p class="hint">${mode==='create'?'必需：型号、名称/规格；计划可留空(默认 0)。':'按型号更新；未提供的列保留原值。'}</p></div>
+    ${d.suggest_import==='movements'?`<p class="import-errors"><b>可能选错导入类型</b>：此表含入库明细特征列，请到「库存变动明细」页导入。</p>`:''}
     ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
     <div class="import-section"><b>③ 预览数据（可直接修改）</b>
       <div class="import-pager"><button type="button" class="secondary" id="importPrevPage" onclick="switchImportPage(-1)">上一页</button><span id="importPageInfo"></span><button type="button" class="secondary" id="importNextPage" onclick="switchImportPage(1)">下一页</button></div>
       <div class="import-pager"><button type="button" class="secondary" id="itemDeletedRestore" onclick="pvRestore('items',null)">恢复已删除的行</button><span id="itemDeletedInfo" class="hint"></span></div>
-      <p class="hint">不需要的行可以逐行删除；确认时只会写入当前预览中的行。</p>
+      <p class="hint">可逐行删除；确认只写入当前预览行。</p>
       <div class="tablewrap preview-table"><table><thead><tr><th>类别</th><th>型号</th><th>名称/规格</th><th>计划数量</th><th>供应商/品牌</th><th>位置</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="importPreviewBody"></tbody></table></div></div>
     ${(d.token||d.edit_token)?`<div class="import-section import-confirm-bar"><div class="confirm-bar-meta" id="itemConfirmMeta"></div><button type="button" id="confirmImport">${verb} ${d.rows} 条</button><div id="importResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
@@ -646,21 +646,21 @@ function renderMovementImportPreview(d){
   const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(movementFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' ');
   const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-  $('#movementImportMsg').textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'可确认导入；如表格未提供数量，请在下方补填或删除不需要的行。':'请调整下面的表头行或字段对应后重新校验。'}`;
+  $('#movementImportMsg').textContent=`第 ${d.header_row} 行为表头，共 ${d.rows} 条；${d.can_import?'可导入，缺数量请补填':'请调整表头或字段'}。`;
   $('#movementImportPreview').innerHTML=`<div class="card">
     <div class="import-section"><b>① 表头所在行</b>
       <div class="map-row"><select id="movementHeaderRow">${headerOpts||`<option value="${d.header_row}">第 ${d.header_row} 行</option>`}</select><button type="button" class="secondary" data-act="mv-apply">应用修改并重新校验</button></div>
-      <p class="hint">自动识别扫描前 30 个非空行；猜错了直接在这里改。</p></div>
+      <p class="hint">表头识别错了在此重选。</p></div>
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
       <details class="mapping-details"${d.can_import&&Object.keys(d.mapping||{}).length?'':' open'}><summary>点击调整字段对应（逐列指定 / 重新校验）</summary><div id="movementMapping" class="import-mapping-grid">${colHtml}</div></details>
-      <p class="hint">必需字段只有「型号」和「入库数量」；类别自动按型号从台账带出，其他列选填。数量列名不必叫「入库数量」，在这里指定即可。</p></div>
+      <p class="hint">必需：型号、数量；其余选填，列名可在上方指定。</p></div>
     ${warnings?`<p><b>提示</b><ul>${warnings}</ul></p>`:''}
     ${errors?`<p class="import-errors"><b>错误（整批不会导入）</b><ul>${errors}</ul></p>`:''}
     <div class="import-section"><b>③ 预览数据（日期、数量、位置、负责人、备注可修改）</b>
       <div class="import-pager"><button type="button" class="secondary" id="mvPrevPage" data-act="mv-prev">上一页</button><span id="movementPageInfo"></span><button type="button" class="secondary" id="mvNextPage" data-act="mv-next">下一页</button></div>
       <div class="import-pager"><button type="button" class="secondary" id="mvDeletedRestore" data-act="mv-restore">恢复已删除的行</button><span id="mvDeletedInfo" class="hint"></span><span id="mvQtyInfo" class="hint"></span></div>
-      <p class="hint">不需要的行可以逐行删除；删错了点「恢复已删除的行」。确认时只会写入当前预览中的行。</p>
+      <p class="hint">可逐行删除/恢复；确认只写入当前预览行。</p>
       <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
     ${(d.token||d.edit_token)?`<div class="import-section import-confirm-bar"><div class="confirm-bar-meta" id="mvConfirmMeta"></div><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button><div id="movementImportResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
@@ -706,7 +706,7 @@ async function confirmMovementImport(token){
   if(!rows.length){const m='预览中没有可导入的数据；可点「恢复已删除的行」或重新上传';uiToast(m);$('#movementImportResult').textContent=m;return}
   const bad=rows.findIndex(r=>!(Number(r.qty)>0));
   if(bad>=0){const m=`第 ${bad+1} 行入库数量必须大于 0，请在预览中补填，或删除该行后再导入。`;uiToast(m);$('#movementImportResult').textContent=m;return}
-  if(!await uiConfirm(`确认将预览中的 ${rows.length} 条记录作为「入库」写入库存变动明细？已删除的行不会写入。`))return;
+  if(!await uiConfirm(`确认导入 ${rows.length} 条入库明细？`))return;
   try{
     pvBegin(_btn,'写入中…');
     const d=await api('/api/import-movements',{method:'POST',body:JSON.stringify({token,rows:window.movementImportPreviewRows})});
@@ -737,7 +737,7 @@ $('#movementImportForm').onsubmit=async e=>{
 /* ===== GB300 导入：可改表头行 / 字段映射 / 分页可编辑预览 ===== */
 try{Object.assign(importFieldNames,{room:'机房/房间',rack:'机柜位置',sn:'SN',
   server_sn:'服务器 SN',node_sn:'NODE_SN',node:'NODE / U 位',node_u:'NODE / U 位',
-  kp_name:'KP_NAME',bmc_mac:'BMC_MAC'});}catch(e){}
+  kp_name:'料号(KP_NAME)',bmc_mac:'BMC_MAC'});}catch(e){}
 
 const GB_IMPORT_CONFIG={
   servers:{
@@ -762,9 +762,9 @@ const GB_IMPORT_CONFIG={
     dataKey:'gbComponentRows',pageKey:'gbComponentPage',stateKey:'gbComponentData',
     mapFields:['server_sn','node_sn','node','kp_name','bmc_mac'],
     tableFields:['server_sn','node_u','node_sn','kp_name','bmc_mac'],numberFields:['node_u'],
-    headers:['服务器 SN','NODE / U 位','NODE_SN','KP_NAME','BMC_MAC'],labels:serverComponentFieldLabels,
+    headers:['服务器 SN','U 位','NODE_SN','料号(KP_NAME)','BMC_MAC'],labels:serverComponentFieldLabels,
     remapUrl:'/api/import-server-components-remap',confirmUrl:'/api/import-server-components',
-    hint:'必需字段：SN、NODE_SN、NODE / U 位、KP_NAME；BMC_MAC 可选。',
+    hint:'必需：SN、NODE_SN、U 位、料号(KP_NAME)；BMC_MAC 可选。',
     confirmLabel:n=>'确认按 SN 替换本文件涉及服务器的部件清单？共 '+n+' 条部件，未列出的 U 位显示为空位。',
     success:d=>'已导入 '+d.imported+' 条部件记录，更新 '+d.servers+' 台服务器。',
     after:async()=>{}
@@ -789,11 +789,11 @@ function renderGbPreview(kind,d){
   const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(cfg.labels[k]||k)} ← ${esc(v)}</span>`).join(' ');
-  $('#'+cfg.msgId).textContent=`已选第 ${d.header_row} 行为表头，共 ${d.rows} 条记录。${d.can_import?'校验通过，可导入。':'请调整下面的表头行或字段对应后重新校验。'}`;
+  $('#'+cfg.msgId).textContent=`第 ${d.header_row} 行为表头，共 ${d.rows} 条；${d.can_import?'校验通过':'请调整表头或字段'}。`;
   $('#'+cfg.boxId).innerHTML=`<div class="card">
     <div class="import-section"><b>① 表头所在行</b>
       <div class="map-row"><select id="${cfg.headerId}">${headerOpts||`<option value="${d.header_row}">第 ${d.header_row} 行</option>`}</select><button type="button" class="secondary" onclick="applyGbMapping('${kind}')">应用修改并重新校验</button></div>
-      <p class="hint">自动识别会扫描前 30 个非空行；表头不在第一行或识别错了，直接在这里选。</p></div>
+      <p class="hint">表头不在首行时在此选择。</p></div>
     <div class="import-section"><b>② 字段对应（每列选一个字段，已隐藏 ${d.hidden_columns||0} 个空列）</b>
       <div class="import-mapping">${mapping||'<span class="hint">暂未识别到字段，请手动指定</span>'}</div>
       <details class="mapping-details"${d.can_import&&Object.keys(d.mapping||{}).length?'':' open'}><summary>点击调整字段对应（逐列指定 / 重新校验）</summary><div id="${cfg.mappingId}" class="import-mapping-grid">${colHtml}</div></details>
