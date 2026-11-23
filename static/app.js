@@ -256,7 +256,7 @@ function renderImportPreview(d){
     const name=(d.columns||[])[i]||'';
     const opts=['<option value="">— 忽略此列 —</option>'].concat(
       IMPORT_PREVIEW_FIELDS.map(f=>`<option value="${f}"${reverse[i]===f?' selected':''}>${esc(importFieldNames[f]||f)}</option>`)).join('');
-    return `<div class="map-col"><label>第 ${i+1} 列 · ${esc(String(name||'（无表头）').slice(0,40))}</label><select data-col="${i}">${opts}</select></div>`;
+    return `<div class="map-col"><label class="map-col-label" title="${esc(String(name||'（无表头）'))}">第 ${i+1} 列 · ${esc(String(name||'（无表头）'))}</label><select data-col="${i}">${opts}</select></div>`;
   }).join('');
   const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
@@ -641,7 +641,7 @@ function renderMovementImportPreview(d){
     const name=(d.columns||[])[i]||'';
     const opts=['<option value="">— 忽略此列 —</option>'].concat(
       MOVEMENT_PREVIEW_FIELDS.map(f=>`<option value="${f}"${reverse[i]===f?' selected':''}>${esc(movementFieldNames[f]||f)}</option>`)).join('');
-    return `<div class="map-col"><label>第 ${i+1} 列 · ${esc(String(name||'（无表头）').slice(0,40))}</label><select data-col="${i}">${opts}</select></div>`;
+    return `<div class="map-col"><label class="map-col-label" title="${esc(String(name||'（无表头）'))}">第 ${i+1} 列 · ${esc(String(name||'（无表头）'))}</label><select data-col="${i}">${opts}</select></div>`;
   }).join('');
   const mapping=Object.entries(d.mapping||{}).map(([k,v])=>`<span class="badge">${esc(movementFieldNames[k]||k)} ← ${esc(v)}</span>`).join(' ');
   const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
@@ -784,7 +784,7 @@ function renderGbPreview(kind,d){
     const name=(d.columns||[])[i]||'';
     const opts=['<option value="">— 忽略此列 —</option>'].concat(
       cfg.mapFields.map(f=>`<option value="${f}"${reverse[i]===f?' selected':''}>${esc(cfg.labels[f]||f)}</option>`)).join('');
-    return `<div class="map-col"><label>第 ${i+1} 列 · ${esc(String(name||'（无表头）').slice(0,40))}</label><select data-col="${i}">${opts}</select></div>`;
+    return `<div class="map-col"><label class="map-col-label" title="${esc(String(name||'（无表头）'))}">第 ${i+1} 列 · ${esc(String(name||'（无表头）'))}</label><select data-col="${i}">${opts}</select></div>`;
   }).join('');
   const errors=(d.errors||[]).map(x=>`<li>${esc(x)}</li>`).join('');
   const warnings=(d.warnings||[]).map(x=>`<li>${esc(x)}</li>`).join('');
