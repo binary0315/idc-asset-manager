@@ -277,13 +277,13 @@ tbody tr:hover{background:#f6fafb}
 .room-navigation .hint{margin:2px 0 0}
 .server-floor{padding:18px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-lg);overflow:auto}
 .rack-equipment{margin:12px 0 22px}
-.rack-row{display:flex;align-items:center;gap:12px;min-width:810px}
-.rack-row+.rack-row{margin-top:10px}
+.rack-row{display:flex;align-items:flex-start;gap:12px;min-width:0;flex-wrap:wrap}
+.rack-row+.rack-row{margin-top:14px}
 .rack-row.row-gap{margin-top:30px;padding-top:22px;border-top:1px dashed var(--line-strong)}
-.rack-label{width:38px;flex:none;font-weight:700;color:var(--ink-2);font-family:var(--mono)}
+.rack-label{width:38px;flex:none;padding-top:30px;font-weight:700;color:var(--ink-2);font-family:var(--mono)}
 .rack-cells{
-  display:grid;grid-template-columns:repeat(10,minmax(62px,1fr));grid-template-rows:86px;
-  grid-auto-flow:column;grid-auto-columns:minmax(62px,1fr);gap:8px;flex:1;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));
+  gap:8px;flex:1;min-width:0;
 }
 .rack-tile{
   height:86px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;

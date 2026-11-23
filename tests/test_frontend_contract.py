@@ -117,5 +117,23 @@ class TestRackAndAccessibility(unittest.TestCase):
         self.assertRegex(CSS, r'#items table td:first-child\{[^}]*position:sticky[^}]*left:0', re.S)
 
 
+class TestRackGrid(unittest.TestCase):
+    def test_rack_row_uses_responsive_wrap(self):
+        """机柜格子响应式换行，不再用固定 10 列把几十个机柜铺成一行。"""
+        self.assertRegex(CSS, r'\.rack-cells\{[^}]*repeat\(auto-fill', re.S)
+        self.assertNotIn('grid-template-columns:repeat(10', CSS)
+        self.assertNotIn('grid-auto-flow:column', CSS)
+        self.assertNotIn('min-width:810px', CSS)
+
+    def test_rack_rows_use_per_row_position(self):
+        """每排按自己的最大机柜号生成格子，不拿全局最大号给所有排铺满。"""
+        # 从每排生成格子的代码段断言（rowRacks 是本次修复引入的唯一标识）
+        idx = JS.index('let rowRacks=roomRacks.filter')
+        seg = JS[idx:][:600]
+        self.assertIn('let rowRacks=roomRacks.filter', seg, '应按排筛选机柜')
+        self.assertIn('Math.min(Math.max(...nums,12)+2,60)', seg, '每排上限应收敛')
+        self.assertNotIn('maxPosition=Math.max', seg, '不应再用全局最大机柜号')
+
+
 if __name__ == '__main__':
     unittest.main()
