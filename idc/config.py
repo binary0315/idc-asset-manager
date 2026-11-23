@@ -53,9 +53,9 @@ HEADER_ALIASES = {
     'used':['已领用安装','已领用/安装','领用数量','usedinstalled','usedqty'],
     'damaged':['损坏报废','损坏/报废','报废数量','damagedqty','scrappedqty'],
 }
-MOVEMENT_FIELDS=('model','qty','category','date','location','owner','notes','kind','sn')
+MOVEMENT_FIELDS=('model','qty','category','date','location','owner','notes','kind')
 MOVEMENT_LABELS={'model':'型号','qty':'入库数量','category':'类别','date':'日期',
-                 'location':'位置/去向','owner':'负责人','notes':'备注','kind':'业务类型','sn':'SN'}
+                 'location':'位置/去向','owner':'负责人','notes':'备注','kind':'业务类型'}
 MOVEMENT_HEADERS={
     'model':['型号','产品型号','设备型号','model','part number','pn'],
     'category':['类别','物料类别','类别分类','category'],
@@ -65,7 +65,6 @@ MOVEMENT_HEADERS={
     'owner':['负责人','责任人','经手人','操作人','登记人','owner','handler','operator'],
     'notes':['备注','说明','notes','remark'],
     'kind':['业务类型','出入库类型','变动类型','类型','出库类型','入库类型','库存变动类型','收发类型','单据类型','操作类型','transaction type','movement type'],
-    'sn':['SN','sn','序列号','序号','serial number','serials'],
 }
 SERVER_FIELDS = ('room', 'rack', 'sn')
 SERVER_LABELS = {'room': '机房/房间', 'rack': '机柜位置', 'sn': 'SN'}

@@ -76,24 +76,6 @@ def normalize_category(value):
     if value in ('光模块','线缆'):return value
     return ''
 
-def parse_movement_sn(value, qty, required=False):
-    """库存明细 SN：入库/领用选填；报废必填且数量须等于 qty（逐件追溯）。
-    多个 SN 用逗号、分号、顿号、换行或空白分隔；返回规范化的 SN 列表。
-    """
-    raw='' if value is None else str(value).strip()
-    parts=[x.strip() for x in re.split(r'[,;\uff0c\u3001\s\r\n]+',raw) if x.strip()]
-    if not required:
-        if raw and len(raw)>2000:raise ValueError('SN 总长度不能超过 2000 字')
-        for x in parts:
-            if len(x)>150:raise ValueError('单个 SN 不能超过 150 字')
-        return parts
-    if len(parts)!=qty:
-        raise ValueError(f'报废 {qty} 件必须填写 {qty} 个 SN（当前 {len(parts)} 个），请用逗号或换行分隔逐件填写')
-    for x in parts:
-        if len(x)>150:raise ValueError('单个 SN 不能超过 150 字')
-    if len(set(parts))!=len(parts):raise ValueError('同一报废单内的 SN 不能重复')
-    return parts
-
 def parse_qty(value, label='数量'):
     """严格正整数：拒绝小数、布尔、非数字字符串、零/负数与超大值。"""
     if isinstance(value, bool):raise ValueError(f'{label}必须是正整数，不接受布尔值')

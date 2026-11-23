@@ -378,12 +378,10 @@ def build_movement_preview(batch,header_row,mapping,token,header_issues=None):
             nt=clean_text(get('notes'),'notes')
         except ValueError as e:
             loc=get('location');own=get('owner');nt=get('notes');issues.append(str(e))
-        sn=get('sn')
-        if len(sn)>2000:sn=sn[:2000];issues.append('SN 过长已截断')
         record={'item_id':base['id'] if base else None,
                 'category':category,'model':base['model'] if base else model,
                 'description':base['description'] if base else '',
-                'kind':'入库','qty':qty,'moved_at':moved_at,'sn':sn,
+                'kind':'入库','qty':qty,'moved_at':moved_at,
                 'location':loc,'owner':own,'notes':nt,'row':rn}
         if issues:errors.append(f'第 {rn} 行：'+'；'.join(issues))
         rows.append(record)
