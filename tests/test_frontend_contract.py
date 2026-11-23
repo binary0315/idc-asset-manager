@@ -66,6 +66,17 @@ class TestMovementForm(unittest.TestCase):
         self.assertIn('请填写：', JS)
         self.assertIn('miss.join', JS)
 
+    def test_sn_field_wired(self):
+        """库存条目级 SN：表单/表格/编辑/导入四处都接通，报废前端必填。"""
+        self.assertIn('name="sn"', HTML)
+        self.assertIn('<th>SN', HTML)
+        self.assertIn("'sn','location','owner','notes'", JS)  # 保存 payload
+        self.assertIn("'location','owner','notes','sn'", JS)  # 导入编辑字段
+        self.assertIn("p.kind==='报废'&&!String(p.sn||'').trim()", JS)
+        cfg = (REPO / 'idc' / 'config.py').read_text(encoding='utf-8')
+        self.assertIn("'sn':['SN'", cfg)  # 导入字段别名
+
+
 
 class TestItemTable(unittest.TestCase):
     def test_delete_light_confirm(self):

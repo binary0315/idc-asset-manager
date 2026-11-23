@@ -51,7 +51,7 @@ from idc.crypto import (pw_hash, json_bytes, validate_username, verify_credentia
                         DUMMY_SALT, DUMMY_HASH)
 from idc.validation import (norm_header, norm_model, clean_text, parse_planned,
                             validate_server_fields, validate_item_fields, parse_qty,
-                            normalize_category)
+                            parse_movement_sn, normalize_category)
 from idc.excel import (match_header, xlsx_matrix, item_matrix, active_column_indexes,
                        header_candidates, auto_detect_header, build_item_preview,
                        parse_item_import, remap_item_import, movement_header,
@@ -231,9 +231,9 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/export/movements.xlsx':
             u=self.require('can_view',False)
             if not u:return
-            with db_ctx() as c: rows=c.execute('SELECT m.moved_at,m.kind,i.category,i.model,m.qty,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at,m.id').fetchall()
-            headers=['日期','业务类型','类别','型号','数量','位置/去向','负责人','备注']
-            payload=make_xlsx('库存变动明细',headers,[list(r) for r in rows],[14,16,14,20,12,24,18,32])
+            with db_ctx() as c: rows=c.execute('SELECT m.moved_at,m.kind,i.category,i.model,m.qty,m.sn,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at,m.id').fetchall()
+            headers=['日期','业务类型','类别','型号','数量','SN','位置/去向','负责人','备注']
+            payload=make_xlsx('库存变动明细',headers,[list(r) for r in rows],[14,16,14,20,12,32,24,18,32])
             return self.send(200,payload,headers={'Content-Disposition':'attachment; filename=IDC_inventory_movements.xlsx'},content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         if p=='/api/status':
             with db_ctx() as c: setup=c.execute('SELECT count(*) FROM users').fetchone()[0]==0
@@ -316,7 +316,7 @@ class Handler(BaseHTTPRequestHandler):
         if p=='/api/movements':
             u=self.require('can_view',False)
             if not u:return
-            with db_ctx() as c: rows=c.execute('SELECT m.id,m.moved_at,m.kind,i.category,i.model,m.qty,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at DESC,m.id DESC LIMIT 1000').fetchall()
+            with db_ctx() as c: rows=c.execute('SELECT m.id,m.moved_at,m.kind,i.category,i.model,m.qty,m.sn,m.location,m.owner,m.notes FROM movements m JOIN items i ON i.id=m.item_id ORDER BY m.moved_at DESC,m.id DESC LIMIT 1000').fetchall()
             return self.send(200,{'movements':[dict(x) for x in rows]})
         if p=='/api/servers':
             u=self.require('can_view',False)
@@ -667,9 +667,12 @@ class Handler(BaseHTTPRequestHandler):
                     if not model or key not in items:raise ValueError(f'第 {i} 行型号必须匹配现有物料台账')
                     if qty<=0:raise ValueError(f'第 {i} 行入库数量必须大于 0，请在预览中补填或删除该行')
                     if category!=items[key]['category']:raise ValueError(f'第 {i} 行类别与型号台账不一致')
+                    sn=str(raw.get('sn','') or '').strip()
+                    if len(sn)>2000:raise ValueError(f'第 {i} 行 SN 过长（最多 2000 字）')
                     clean.append({'item_id':items[key]['id'],'category':category,'model':model,
                                   'description':items[key]['description'],'kind':'入库','qty':qty,
-                                  'moved_at':moved_at,'location':str(raw.get('location','')).strip(),
+                                  'moved_at':moved_at,'sn':sn,
+                                  'location':str(raw.get('location','')).strip(),
                                   'owner':str(raw.get('owner','')).strip(),'notes':str(raw.get('notes','')).strip()})
             except (ValueError,TypeError) as e:
                 return self.send(400,{'error':str(e) or '编辑内容格式错误'})
@@ -679,7 +682,7 @@ class Handler(BaseHTTPRequestHandler):
                     for item in batch['rows']:
                         exists=c.execute('SELECT id FROM items WHERE id=?',(item['item_id'],)).fetchone()
                         if not exists:raise ValueError('物料在确认导入前已被删除，请重新预览文件')
-                        c.execute('INSERT INTO movements(item_id,kind,qty,moved_at,location,owner,notes,created_by) VALUES(?,?,?,?,?,?,?,?)',(item['item_id'],'入库',item['qty'],item['moved_at'],item['location'],item['owner'],item['notes'],u['id']))
+                        c.execute('INSERT INTO movements(item_id,kind,qty,moved_at,sn,location,owner,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)',(item['item_id'],'入库',item['qty'],item['moved_at'],item['sn'],item['location'],item['owner'],item['notes'],u['id']))
             except ValueError as e:return self.send(409,{'error':str(e)})
             except sqlite3.IntegrityError:return self.send(409,{'error':'导入未完成，请重新预览文件后重试'})
             with db_ctx() as c:
@@ -837,6 +840,10 @@ class Handler(BaseHTTPRequestHandler):
             if kind not in ('入库','领用/安装','报废') or not moved:return self.send(400,{'error':'业务类型、日期必填'})
             if category not in ('光模块','线缆'):return self.send(400,{'error':'类别必填且只能是光模块或线缆'})
             try:
+                sn_list=parse_movement_sn(d.get('sn'),qty,required=(kind=='报废'))
+            except ValueError as e:return self.send(400,{'error':str(e)})
+            sn_text=', '.join(sn_list)
+            try:
                 datetime.strptime(str(moved),'%Y-%m-%d')
             except (ValueError,TypeError):
                 return self.send(400,{'error':'日期格式必须是 YYYY-MM-DD，例如 2026-11-12'})
@@ -847,9 +854,12 @@ class Handler(BaseHTTPRequestHandler):
                     if len(matches)>1:return self.send(409,{'error':'该型号不唯一，无法关联'})
                     it=matches[0]; item_id=it['id']
                     if category and category!=it['category']:return self.send(400,{'error':'类别与该型号台账不一致'})
-                    cur=c.execute('INSERT INTO movements(item_id,kind,qty,moved_at,location,owner,notes,created_by) VALUES(?,?,?,?,?,?,?,?)',(item_id,kind,qty,moved,str(d.get('location','')),str(d.get('owner',d.get('handler',''))),str(d.get('notes','')),u['id']))
+                    if sn_list:
+                        dup=c.execute(f"SELECT 1 FROM material_spares WHERE item_id=? AND serial_number IN ({','.join('?'*len(sn_list))}) LIMIT 1",[item_id]+sn_list).fetchone()
+                        if dup:return self.send(409,{'error':'该 SN 已在同一型号的坏件中登记，请勿重复'})
+                    cur=c.execute('INSERT INTO movements(item_id,kind,qty,moved_at,sn,location,owner,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?)',(item_id,kind,qty,moved,sn_text,str(d.get('location','')),str(d.get('owner',d.get('handler',''))),str(d.get('notes','')),u['id']))
                     if kind=='报废':
-                        c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,created_by) VALUES(?,?,?,?)',[(cur.lastrowid,i,item_id,u['id']) for i in range(1,qty+1)])
+                        c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,serial_number,created_by) VALUES(?,?,?,?,?)',[(cur.lastrowid,i,item_id,sn_list[i-1],u['id']) for i in range(1,qty+1)])
                     if kind!='入库':
                         assert_stock(c,[item_id],f'登记{kind} {qty} 件')
                     log_action(c,u['id'],'登记'+kind,model,f'数量 {qty}，日期 {moved}')
@@ -996,6 +1006,9 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as e:return self.send(400,{'error':str(e)})
             model=str(d.get('model','')).strip(); kind=str(d.get('kind','')); moved=str(d.get('moved_at',''))
             if not model or not moved or kind not in ('入库','领用/安装','报废'):return self.send(400,{'error':'型号、日期和有效业务类型必填'})
+            try:sn_list=parse_movement_sn(d.get('sn'),qty,required=(kind=='报废'))
+            except ValueError as e:return self.send(400,{'error':str(e)})
+            sn_text=', '.join(sn_list)
             with db_ctx() as c:
                 items=c.execute('SELECT id FROM items WHERE model=?',(model,)).fetchall()
                 if len(items)!=1:return self.send(400,{'error':'型号不存在或不唯一'})
@@ -1007,18 +1020,29 @@ class Handler(BaseHTTPRequestHandler):
                 progressed=c.execute("SELECT COUNT(*) n FROM material_spares WHERE movement_id=? AND (serial_number<>'' OR status<>'待处理')",(movement_id,)).fetchone()['n']
                 if linked and progressed and (kind!='报废' or old['item_id']!=items[0]['id'] or qty<old['qty']):
                     return self.send(409,{'error':'该报废明细已有已处理坏件，不能更改型号、业务类型或减少数量'})
+                if kind=='报废' and progressed and sn_text!=(old['sn'] or ''):
+                    return self.send(409,{'error':'该报废明细已有处理过的坏件，不能再修改 SN'})
+                if sn_list:
+                    dup=c.execute(f"SELECT 1 FROM material_spares WHERE item_id=? AND serial_number IN ({','.join('?'*len(sn_list))}) AND movement_id<>? LIMIT 1",[items[0]['id']]+sn_list+[movement_id]).fetchone()
+                    if dup:return self.send(409,{'error':'该 SN 已在同一型号的坏件中登记，请勿重复'})
                 if predict_negative(c,movement_id,items[0]['id'],kind,qty):
                     return self.send(409,{'error':'可用库存不足：修改后会出现负库存，不允许负库存，本次修改已撤销'})
-                cur=c.execute('UPDATE movements SET item_id=?,kind=?,qty=?,moved_at=?,location=?,owner=?,notes=? WHERE id=?',(items[0]['id'],kind,qty,moved,str(d.get('location','')),str(d.get('owner','')),str(d.get('notes','')),movement_id))
+                cur=c.execute('UPDATE movements SET item_id=?,kind=?,qty=?,moved_at=?,sn=?,location=?,owner=?,notes=? WHERE id=?',(items[0]['id'],kind,qty,moved,sn_text,str(d.get('location','')),str(d.get('owner','')),str(d.get('notes','')),movement_id))
                 if linked:
                     if kind!='报废':c.execute('DELETE FROM material_spares WHERE movement_id=?',(movement_id,))
                     elif not progressed and old['item_id']!=items[0]['id']:c.execute('DELETE FROM material_spares WHERE movement_id=?',(movement_id,))
                     if kind=='报废':
                         c.execute('DELETE FROM material_spares WHERE movement_id=? AND unit_index>?',(movement_id,qty))
                         existing=c.execute('SELECT COALESCE(MAX(unit_index),0) n FROM material_spares WHERE movement_id=?',(movement_id,)).fetchone()['n']
-                        c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,created_by) VALUES(?,?,?,?)',[(movement_id,i,items[0]['id'],u['id']) for i in range(existing+1,qty+1)])
+                        if sn_list and not progressed:
+                            # 未处理的坏件：按新 SN 逐件回填（位置按 unit_index 对应列表顺序）
+                            for idx in range(1,min(existing,qty)+1):
+                                c.execute('UPDATE material_spares SET serial_number=? WHERE movement_id=? AND unit_index=?',(sn_list[idx-1],movement_id,idx))
+                            c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,serial_number,created_by) VALUES(?,?,?,?,?)',[(movement_id,i,items[0]['id'],sn_list[i-1],u['id']) for i in range(existing+1,qty+1)])
+                        else:
+                            c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,created_by) VALUES(?,?,?,?)',[(movement_id,i,items[0]['id'],u['id']) for i in range(existing+1,qty+1)])
                 elif kind=='报废':
-                    c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,created_by) VALUES(?,?,?,?)',[(movement_id,i,items[0]['id'],u['id']) for i in range(1,qty+1)])
+                    c.executemany('INSERT INTO material_spares(movement_id,unit_index,item_id,serial_number,created_by) VALUES(?,?,?,?,?)',[(movement_id,i,items[0]['id'],sn_list[i-1],u['id']) for i in range(1,qty+1)])
             return self.send(200,{'ok':True})
         if p.startswith('/api/items/'):
             u=self.require('can_edit')

@@ -24,22 +24,22 @@ $('#authForm').onsubmit=async e=>{e.preventDefault();$('#authMsg').textContent='
 async function refresh(){await loadItems();await loadMoves();await loadServers();await loadSpares();if(me.is_admin)await loadUsers()}
 let editingMovementId=null;
 function movementRow(x,editing=false){
- if(!editing)return `<tr><td>${esc(x.moved_at)}</td><td>${esc(x.kind)}</td><td>${esc(x.category)}</td><td>${esc(x.model)}</td><td>${x.qty}</td><td>${esc(x.location)}</td><td>${esc(x.owner)}</td><td>${esc(x.notes)}</td>${me.can_edit||me.is_admin?`<td><button class="secondary" onclick="editMovement(${x.id})">编辑</button> ${me.is_admin?`<button class="danger" onclick="deleteMovement(${x.id})">删除</button>`:''}</td>`:'<td></td>'}</tr>`;
+ if(!editing)return `<tr><td>${esc(x.moved_at)}</td><td>${esc(x.kind)}</td><td>${esc(x.category)}</td><td>${esc(x.model)}</td><td>${x.qty}</td><td>${esc(x.sn||'')}</td><td>${esc(x.location)}</td><td>${esc(x.owner)}</td><td>${esc(x.notes)}</td>${me.can_edit||me.is_admin?`<td><button class="secondary" onclick="editMovement(${x.id})">编辑</button> ${me.is_admin?`<button class="danger" onclick="deleteMovement(${x.id})">删除</button>`:''}</td>`:'<td></td>'}</tr>`;
  let kindOpts=['入库','领用/安装','报废'].map(v=>`<option ${v===x.kind?'selected':''}>${v}</option>`).join('');
  let modelOpts=(window.allItems||[]).map(i=>`<option value="${esc(i.model)}" ${i.model===x.model?'selected':''}>${esc(i.model)} · ${esc(i.category)}</option>`).join('');
- return `<tr id="movement-${x.id}"><td><input name="moved_at" type="date" value="${esc(x.moved_at)}"></td><td><select name="kind">${kindOpts}</select></td><td>${esc(x.category)}</td><td><select name="model">${modelOpts}</select></td><td><input name="qty" type="number" min="1" step="1" value="${x.qty}"></td><td><input name="location" value="${esc(x.location)}"></td><td><input name="owner" value="${esc(x.owner)}"></td><td><input name="notes" value="${esc(x.notes)}"></td><td><button onclick="saveMovement(${x.id})">保存</button> <button class="secondary" onclick="cancelMovementEdit()">取消</button><div class="status edit-error"></div></td></tr>`;
+ return `<tr id="movement-${x.id}"><td><input name="moved_at" type="date" value="${esc(x.moved_at)}"></td><td><select name="kind">${kindOpts}</select></td><td>${esc(x.category)}</td><td><select name="model">${modelOpts}</select></td><td><input name="qty" type="number" min="1" step="1" value="${x.qty}"></td><td><input name="sn" value="${esc(x.sn||'')}" placeholder="报废必填"></td><td><input name="location" value="${esc(x.location)}"></td><td><input name="owner" value="${esc(x.owner)}"></td><td><input name="notes" value="${esc(x.notes)}"></td><td><button onclick="saveMovement(${x.id})">保存</button> <button class="secondary" onclick="cancelMovementEdit()">取消</button><div class="status edit-error"></div></td></tr>`;
 }
 async function loadMoves(){let {movements}=await api('/api/movements');window.allMovements=movements;$('#movesBody').innerHTML=movements.map(x=>movementRow(x,x.id===editingMovementId)).join('')}
 function editMovement(id){editingMovementId=id;loadMoves()}
 function cancelMovementEdit(){editingMovementId=null;loadMoves()}
-async function saveMovement(id){let tr=$('#movement-'+id);let payload={};for(let k of ['moved_at','kind','model','qty','location','owner','notes'])payload[k]=tr.querySelector(`[name="${k}"]`).value;payload.qty=Number(payload.qty);try{await api('/api/movements/'+id,{method:'PATCH',body:JSON.stringify(payload)});editingMovementId=null;await loadItems();await loadMoves()}catch(e){tr.querySelector('.edit-error').textContent=e.message}}
+async function saveMovement(id){let tr=$('#movement-'+id);let payload={};for(let k of ['moved_at','kind','model','qty','sn','location','owner','notes'])payload[k]=tr.querySelector(`[name="${k}"]`).value;payload.qty=Number(payload.qty);try{await api('/api/movements/'+id,{method:'PATCH',body:JSON.stringify(payload)});editingMovementId=null;await loadItems();await loadMoves()}catch(e){tr.querySelector('.edit-error').textContent=e.message}}
 
 const importFieldNames={category:'类别',model:'型号',description:'名称/规格',planned:'计划数量',supplier:'供应商/品牌',location:'存放位置',owner:'负责人',notes:'备注'};
 $('#importForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#importMsg').textContent='正在读取并检查表格…';$('#importPreview').innerHTML='';try{let r=await fetch('/api/import-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf,'X-Category-Default':e.target.elements.default_category.value},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');renderImportPreview(d)}catch(err){$('#importMsg').textContent=err.message}};
 
 $('#itemForm').onsubmit=async e=>{e.preventDefault();let p=Object.fromEntries(new FormData(e.target));try{await api('/api/items',{method:'POST',body:JSON.stringify(p)});e.target.reset();e.target.elements.planned.value=0;$('#itemMsg').textContent='物料已保存';await loadItems();filterItems()}catch(err){$('#itemMsg').textContent=err.message}};
 
-const movementFieldNames={model:'型号',category:'类别',qty:'入库数量',date:'日期',location:'位置/去向',owner:'负责人',notes:'备注',kind:'业务类型'};
+const movementFieldNames={model:'型号',category:'类别',qty:'入库数量',date:'日期',location:'位置/去向',owner:'负责人',notes:'备注',kind:'业务类型',sn:'SN'};
 $('#movementImportForm').onsubmit=async e=>{e.preventDefault();let file=e.target.elements.file.files[0];if(!file)return;$('#movementImportMsg').textContent='正在读取并校验入库明细…';$('#movementImportPreview').innerHTML='';try{let r=await fetch('/api/import-movements-preview',{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','X-CSRF-Token':csrf,'X-Category-Default':e.target.elements.default_category.value},body:file});let d=await r.json();if(!r.ok)throw Error(d.error||'无法读取表格');renderMovementImportPreview(d)}catch(err){$('#movementImportMsg').textContent=err.message}};
 
 $('#moveForm').elements.kind.onchange=e=>{$('#locationLabel').textContent=e.target.value==='入库'?'入库位置（选填）':e.target.value==='报废'?'处理去向（选填）':'使用位置/目的地（选填）'};
@@ -51,6 +51,7 @@ $('#moveForm').onsubmit=async e=>{
   if(!p.moved_at)miss.push('日期');
   if(!p.qty||!Number.isInteger(Number(p.qty))||!(Number(p.qty)>0))miss.push('数量（需大于 0 的整数）');
   if(!p.model)miss.push('型号');
+  if(p.kind==='报废'&&!String(p.sn||'').trim())miss.push('SN（报废必填，多件用逗号分隔）');
   if(miss.length){$('#moveMsg').textContent='请填写：'+miss.join('、');return}
   $('#moveMsg').textContent='';
   try{await api('/api/movements',{method:'POST',body:JSON.stringify(p)});$('#moveMsg').textContent='库存明细已登记';f.reset();f.elements.moved_at.value=todayStr();await loadItems();fillMovementModels();await loadMoves()}
@@ -227,7 +228,7 @@ function renderImportPage(){
   const lockModel=(d.mode||'create')==='update';
   const html=page.map((x,i)=>`<tr><td>${previewCell(x.category,i,'category')}</td><td>${previewCell(x.model,i,'model','text',lockModel)}</td><td>${previewCell(x.description,i,'description')}</td><td>${previewCell(x.planned,i,'planned','number')}</td><td>${previewCell(x.supplier,i,'supplier')}</td><td>${previewCell(x.location,i,'location')}</td><td>${previewCell(x.owner,i,'owner')}</td><td>${previewCell(x.notes,i,'notes')}</td><td><button type="button" class="secondary" onclick="pvDelete('items',null,${i})">删除</button></td></tr>`).join('');
   const body=$('#importPreviewBody');
-  if(body)body.innerHTML=html||'<tr><td colspan="9" class="hint">没有可预览的数据行；可点「恢复已删除的行」</td></tr>';
+  if(body)body.innerHTML=html||'<tr><td colspan="10" class="hint">没有可预览的数据行；可点「恢复已删除的行」</td></tr>';
   const total=Math.max(1,Math.ceil(rows.length/IMPORT_PAGE_SIZE));
   const info=$('#importPageInfo');
   if(info)info.textContent=`第 ${rows.length?start+1:0}–${Math.min(start+IMPORT_PAGE_SIZE,rows.length)} 条 / 共 ${rows.length} 条 · 第 ${window.importPage+1}/${total} 页`;
@@ -579,8 +580,8 @@ async function purgeAllRecycle(){
 
 
 /* ===== 入库明细导入：字段映射编辑 / 表头行 / 分页预览 ===== */
-const MOVEMENT_PREVIEW_FIELDS=['model','qty','date','category','kind','location','owner','notes'];
-const MOVEMENT_EDITABLE=['moved_at','qty','location','owner','notes'];
+const MOVEMENT_PREVIEW_FIELDS=['model','qty','date','category','kind','sn','location','owner','notes'];
+const MOVEMENT_EDITABLE=['moved_at','qty','location','owner','notes','sn'];
 const MOVEMENT_PAGE_SIZE=50;
 window.mvImportPage=0;window.mvImportData=null;window.movementImportPreviewRows=[];
 window.movementImportToken=null;
@@ -612,6 +613,7 @@ function renderMovementPage(){
     <td>${mvCell(x.category,i,'category','text',true)}</td>
     <td>${mvCell(x.model,i,'model','text',true)}</td>
     <td>${mvCell(x.qty,i,'qty','number')}</td>
+    <td>${mvCell(x.sn||'',i,'sn')}</td>
     <td>${mvCell(x.location,i,'location')}</td>
     <td>${mvCell(x.owner,i,'owner')}</td>
     <td>${mvCell(x.notes,i,'notes')}</td>
@@ -661,7 +663,7 @@ function renderMovementImportPreview(d){
       <div class="import-pager"><button type="button" class="secondary" id="mvPrevPage" data-act="mv-prev">上一页</button><span id="movementPageInfo"></span><button type="button" class="secondary" id="mvNextPage" data-act="mv-next">下一页</button></div>
       <div class="import-pager"><button type="button" class="secondary" id="mvDeletedRestore" data-act="mv-restore">恢复已删除的行</button><span id="mvDeletedInfo" class="hint"></span><span id="mvQtyInfo" class="hint"></span></div>
       <p class="hint">不需要的行可以逐行删除；删错了点「恢复已删除的行」。确认时只会写入当前预览中的行。</p>
-      <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>位置/去向</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
+      <div class="tablewrap preview-table"><table><thead><tr><th>日期</th><th>业务类型</th><th>类别</th><th>型号</th><th>数量</th><th>SN（选填）</th><th>位置/去向</th><th>负责人</th><th>备注</th><th>操作</th></tr></thead><tbody id="movementPreviewBody"></tbody></table></div></div>
     ${(d.token||d.edit_token)?`<div class="import-section import-confirm-bar"><div class="confirm-bar-meta" id="mvConfirmMeta"></div><button type="button" id="movementConfirmBtn" data-act="mv-confirm">确认导入 ${d.rows} 条入库明细</button><div id="movementImportResult" class="status" aria-live="polite"></div></div>`:''}
   </div>`;
   $('#movementImportPreview').onclick=e=>{

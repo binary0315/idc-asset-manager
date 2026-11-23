@@ -88,6 +88,9 @@ def init():
         if 'owner' not in movement_cols:
             c.execute("ALTER TABLE movements ADD COLUMN owner TEXT DEFAULT ''")
             c.execute("UPDATE movements SET owner=COALESCE(handler,'')")
+        # 条目级 SN：一条库存明细可关联一个 SN（入库/领用选填，报废必填）。
+        if 'sn' not in movement_cols:
+            c.execute("ALTER TABLE movements ADD COLUMN sn TEXT NOT NULL DEFAULT ''")
         # Backfill legacy scrap transactions once. Each scrapped unit becomes an
         # individual pending spare record whose serial number can be entered later.
         for movement in c.execute("SELECT id,item_id,qty,created_by FROM movements WHERE kind='报废'").fetchall():
